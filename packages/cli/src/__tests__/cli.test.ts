@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import http from 'node:http';
 import { promisify } from 'node:util';
 import { storage } from '@stripe/link-sdk';
@@ -19,6 +19,12 @@ interface CliResult {
   stdout: string;
   stderr: string;
   exitCode: number;
+}
+
+interface SpawnCliOptions {
+  extraEnv?: Record<string, string>;
+  input?: string;
+  stdin?: 'ignore' | 'pipe';
 }
 
 function parseJson(raw: string): unknown {
@@ -105,6 +111,16 @@ async function runProdCli(...args: string[]): Promise<CliResult> {
   return runProdCliWithEnv({}, ...args);
 }
 
+function buildProdCliEnv(extraEnv: Record<string, string>): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    LINK_API_BASE_URL: `http://127.0.0.1:${serverPort}`,
+    LINK_AUTH_BASE_URL: `http://127.0.0.1:${serverPort}`,
+    XDG_DATA_HOME: '/tmp/link-cli-test-empty',
+    ...extraEnv,
+  };
+}
+
 async function runProdCliWithEnv(
   extraEnv: Record<string, string>,
   ...args: string[]
@@ -114,13 +130,7 @@ async function runProdCliWithEnv(
       'node',
       [CLI_PATH, ...args],
       {
-        env: {
-          ...process.env,
-          LINK_API_BASE_URL: `http://127.0.0.1:${serverPort}`,
-          LINK_AUTH_BASE_URL: `http://127.0.0.1:${serverPort}`,
-          XDG_DATA_HOME: '/tmp/link-cli-test-empty',
-          ...extraEnv,
-        },
+        env: buildProdCliEnv(extraEnv),
         timeout: 10_000,
       },
     );
@@ -133,6 +143,64 @@ async function runProdCliWithEnv(
       exitCode: e.code ?? 1,
     };
   }
+}
+
+// Use spawn for the interactive auth login cases so tests can write y/n to
+// stdin, capture the stderr prompt, and simulate stdin closing.
+async function runProdCliWithSpawn(
+  options: SpawnCliOptions,
+  ...args: string[]
+): Promise<CliResult> {
+  const { extraEnv = {}, input, stdin = 'pipe' } = options;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('node', [CLI_PATH, ...args], {
+      env: buildProdCliEnv(extraEnv),
+      stdio: [stdin, 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`CLI timed out: ${args.join(' ')}`));
+    }, 10_000);
+
+    const finish = (result: CliResult) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.once('error', (error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once('close', (code) => {
+      finish({ stdout, stderr, exitCode: code ?? 1 });
+    });
+
+    if (stdin === 'pipe') {
+      child.stdin?.end(input ?? '');
+    }
+  });
 }
 
 describe('production mode', () => {
@@ -1250,6 +1318,7 @@ describe('production mode', () => {
   });
 
   describe('auth login', () => {
+    const DEFAULT_LOGIN_SCOPE = 'userinfo:read payment_methods.agentic';
     const DEVICE_CODE_RESPONSE = {
       device_code: 'test_device_code',
       user_code: 'apple-grape',
@@ -1295,12 +1364,17 @@ describe('production mode', () => {
       expect(output).toMatch(/scope|non-empty/i);
     });
 
-    it('exits early with already logged in message when valid session exists', async () => {
+    it('exits early only for identical scope-only access', async () => {
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: DEFAULT_LOGIN_SCOPE,
+      });
       setResponseForUrl('/device/token', 200, {
         access_token: 'refreshed_access_token',
         refresh_token: 'refreshed_refresh_token',
         expires_in: 3600,
         token_type: 'Bearer',
+        scope: DEFAULT_LOGIN_SCOPE,
       });
 
       const result = await runProdCli(
@@ -1315,6 +1389,299 @@ describe('production mode', () => {
       const output = parseJson(result.stdout) as Record<string, unknown>[];
       expect(output[0].authenticated).toBe(true);
       expect(output[0].message).toMatch(/already logged in/i);
+      expect(
+        requests.find((r) => r.url.includes('/device/code')),
+      ).toBeUndefined();
+      expect(
+        requests.find((r) => r.url.includes('/device/revoke')),
+      ).toBeUndefined();
+    });
+
+    it('does not early exit when requested authorization details match existing granted access', async () => {
+      const authorizationDetails = [
+        {
+          type: 'source',
+          resource_id: 'src_123',
+          actions: ['read_source_details'],
+        },
+      ];
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/revoke', 200, 'ok');
+      setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
+
+      const result = await runProdCli(
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--source-actions',
+        'read_source_details',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout + result.stderr).not.toMatch(/already logged in/i);
+      expect(
+        requests.find((r) => r.url.includes('/device/code')),
+      ).toBeDefined();
+      expect(
+        requests.find((r) => r.url.includes('/device/revoke')),
+      ).toBeUndefined();
+    });
+
+    it('treats explicit authorization detail types as covered access', async () => {
+      const existingAuthorizationDetails = [
+        {
+          type: 'account',
+          resource_id: 'acct_123',
+          actions: ['read'],
+        },
+      ];
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: existingAuthorizationDetails,
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: existingAuthorizationDetails,
+      });
+      setResponseForUrl('/device/revoke', 200, 'ok');
+      setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
+
+      const result = await runProdCli(
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--authorization-detail',
+        '{"type":"account","filters":["current"]}',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout + result.stderr).not.toMatch(
+        /would remove your access/i,
+      );
+
+      const deviceCodeRequest = requests.find((r) =>
+        r.url.includes('/device/code'),
+      );
+      expect(deviceCodeRequest).toBeDefined();
+      const params = new URLSearchParams(deviceCodeRequest?.body);
+      expect(params.get('scope')).toBe(DEFAULT_LOGIN_SCOPE);
+      expect(params.getAll('authorization_details[][type]')).toEqual([
+        'account',
+      ]);
+      expect(params.getAll('authorization_details[][filters][]')).toEqual([
+        'current',
+      ]);
+    });
+
+    it('does not prompt to preserve scopes when existing stored scopes are comma-delimited', async () => {
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: 'userinfo:read,payment_methods.agentic',
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: 'userinfo:read,payment_methods.agentic',
+      });
+      setResponseForUrl('/device/revoke', 200, 'ok');
+      setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
+
+      const result = await runProdCli(
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--scope',
+        DEFAULT_LOGIN_SCOPE,
+        '--source-actions',
+        'read_link_transactions',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout + result.stderr).not.toMatch(
+        /would remove your access/i,
+      );
+
+      const deviceCodeRequest = requests.find((r) =>
+        r.url.includes('/device/code'),
+      );
+      expect(deviceCodeRequest).toBeDefined();
+      const params = new URLSearchParams(deviceCodeRequest?.body);
+      expect(params.get('scope')).toBe(DEFAULT_LOGIN_SCOPE);
+      expect(params.getAll('authorization_details[][actions][]')).toEqual([
+        'read_link_transactions',
+      ]);
+    });
+
+    it('prompts on narrowed access and keeps the original request when the user answers no', async () => {
+      const authorizationDetails = [
+        {
+          type: 'source',
+          resource_id: 'src_123',
+          actions: ['read_source_details'],
+        },
+      ];
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/revoke', 200, 'ok');
+      setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
+
+      const result = await runProdCliWithSpawn(
+        { input: 'n\n' },
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toMatch(/would remove your access/i);
+      expect(result.stderr).toMatch(/1 resource of type source/i);
+
+      const output = parseJson(result.stdout) as Record<string, unknown>[];
+      expect(output[0].verification_url).toBeDefined();
+
+      const deviceCodeRequest = requests.find((r) =>
+        r.url.includes('/device/code'),
+      );
+      expect(deviceCodeRequest).toBeDefined();
+      const params = new URLSearchParams(deviceCodeRequest?.body);
+      expect(params.get('scope')).toBe(DEFAULT_LOGIN_SCOPE);
+      expect(params.getAll('authorization_details[][type]')).toEqual([]);
+    });
+
+    it('adds missing scopes when the user answers yes even if source access is narrower', async () => {
+      const authorizationDetails = [
+        {
+          type: 'source',
+          resource_id: 'src_123',
+          actions: ['read_source_details', 'read_balances'],
+        },
+        {
+          type: 'source',
+          resource_id: 'src_456',
+          actions: ['read_link_transactions'],
+        },
+      ];
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: `${DEFAULT_LOGIN_SCOPE} spend_requests:approve`,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: `${DEFAULT_LOGIN_SCOPE} spend_requests:approve`,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/revoke', 200, 'ok');
+      setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
+
+      const result = await runProdCliWithSpawn(
+        { input: 'y\n' },
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--scope',
+        'userinfo:read',
+        '--source-actions',
+        'read_source_details',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain('payment_methods.agentic');
+      expect(result.stderr).toContain('spend_requests:approve');
+      expect(result.stderr).not.toMatch(/resources of type source/i);
+
+      const deviceCodeRequest = requests.find((r) =>
+        r.url.includes('/device/code'),
+      );
+      expect(deviceCodeRequest).toBeDefined();
+      const params = new URLSearchParams(deviceCodeRequest?.body);
+      expect(params.get('scope')).toBe(
+        'userinfo:read payment_methods.agentic spend_requests:approve',
+      );
+      expect(params.getAll('authorization_details[][type]')).toEqual([
+        'source',
+      ]);
+      expect(params.getAll('authorization_details[][actions][]')).toEqual([
+        'read_source_details',
+      ]);
+    });
+
+    it('fails clearly when stdin closes without a prompt answer', async () => {
+      const authorizationDetails = [
+        {
+          type: 'source',
+          resource_id: 'src_123',
+          actions: ['read_source_details'],
+        },
+      ];
+      storage.setAuth({
+        ...PROD_AUTH_TOKENS,
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+      setResponseForUrl('/device/token', 200, {
+        access_token: 'refreshed_access_token',
+        refresh_token: 'refreshed_refresh_token',
+        expires_in: 3600,
+        token_type: 'Bearer',
+        scope: DEFAULT_LOGIN_SCOPE,
+        authorization_details: authorizationDetails,
+      });
+
+      const result = await runProdCliWithSpawn(
+        {},
+        'auth',
+        'login',
+        '--client-name',
+        'My Agent',
+        '--json',
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout + result.stderr).toMatch(/stdin|answer/i);
       expect(
         requests.find((r) => r.url.includes('/device/code')),
       ).toBeUndefined();
@@ -1357,7 +1724,7 @@ describe('production mode', () => {
         '--client-name',
         'My Agent',
         '--scope',
-        'userinfo:read   source_details:read   balances:read',
+        'userinfo:read   read_source_details   read_balances',
         '--json',
       );
 
@@ -1368,7 +1735,7 @@ describe('production mode', () => {
       expect(deviceCodeRequest).toBeDefined();
       const params = new URLSearchParams(deviceCodeRequest?.body);
       expect(params.get('scope')).toBe(
-        'userinfo:read source_details:read balances:read',
+        'userinfo:read read_source_details read_balances',
       );
       expect(params.get('authorization_details')).toBeNull();
       expect(params.get('authorization_details[0][type]')).toBeNull();
@@ -1396,7 +1763,7 @@ describe('production mode', () => {
       );
       expect(deviceCodeRequest).toBeDefined();
       const params = new URLSearchParams(deviceCodeRequest?.body);
-      expect(params.get('scope')).toBe('userinfo:read payment_methods.agentic');
+      expect(params.get('scope')).toBe(DEFAULT_LOGIN_SCOPE);
       expect(params.get('authorization_details')).toBeNull();
       expect(params.getAll('authorization_details[][type]')).toEqual([
         'source',
@@ -1498,7 +1865,7 @@ describe('production mode', () => {
       expect(next.until).toContain('authenticated');
     });
 
-    it('revokes existing session before starting new login when refresh fails', async () => {
+    it('does not revoke the existing session before starting new login when refresh fails', async () => {
       setResponseForUrl('/device/token', 401, { error: 'invalid_grant' });
       setResponseForUrl('/device/revoke', 200, 'ok');
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
@@ -1512,18 +1879,16 @@ describe('production mode', () => {
       );
 
       expect(result.exitCode).toBe(0);
-      const revokeRequest = requests.find((r) =>
-        r.url.includes('/device/revoke'),
-      );
-      expect(revokeRequest).toBeDefined();
-      expect(revokeRequest?.method).toBe('POST');
-      const params = new URLSearchParams(revokeRequest?.body);
-      expect(params.get('token')).toBe(PROD_AUTH_TOKENS.refresh_token);
+      expect(
+        requests.find((r) => r.url.includes('/device/code')),
+      ).toBeDefined();
+      expect(
+        requests.find((r) => r.url.includes('/device/revoke')),
+      ).toBeUndefined();
     });
 
-    it('proceeds with login even if revoke fails', async () => {
+    it('proceeds with login when refresh fails without revoking the existing session', async () => {
       setResponseForUrl('/device/token', 401, { error: 'invalid_grant' });
-      setResponseForUrl('/device/revoke', 500, { error: 'server_error' });
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1537,6 +1902,9 @@ describe('production mode', () => {
       expect(result.exitCode).toBe(0);
       const output = parseJson(result.stdout) as Record<string, unknown>[];
       expect(output[0].verification_url).toBeDefined();
+      expect(
+        requests.find((r) => r.url.includes('/device/revoke')),
+      ).toBeUndefined();
     });
 
     it('skips revoke when not previously authenticated', async () => {

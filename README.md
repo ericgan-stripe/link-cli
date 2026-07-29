@@ -88,6 +88,18 @@ link-cli auth login
 
 You receive a verification URL and a short phrase. Visit the URL, log in to your Link account, and enter the phrase to approve the connection.
 
+#### Widening or narrowing access
+
+Logging in again will replace your existing access with new access specific to the new login attempt.
+
+
+Run `auth status` first so you can see the currently granted `scope` and `authorization_details` before deciding whether a new login is needed. If you do re-run `auth login`, request a superset of the current permissions unless you intentionally want to downgrade access.
+
+```
+link-cli auth status
+
+If you run `auth login` again while already authenticated and narrow your permissions, the CLI prompts to add that access back into the request before continuing.
+
 ### List payment methods
 
 ```bash
@@ -197,15 +209,19 @@ link-cli mpp pay https://climate.stripe.dev/api/contribute \
 ### Authentication
 
 ```bash
-link-cli auth login --client-name "Claude Code"   # identify the connecting agent
+link-cli auth status                                # inspect current grants first
+link-cli auth login --client-name "Claude Code"    # identify the connecting agent
 link-cli auth login --client-name "Claude Code" --interval 5 --timeout 300  # login + poll in one call
-link-cli auth status                               # check auth status
-link-cli auth logout                               # disconnect
+link-cli auth logout                                # disconnect
 ```
 
 When you provide `--client-name`, the Link app displays it when you approve the connection — for example, `Claude Code on my-macbook` instead of `link-cli on my-macbook`.
 
 With `--interval`, the login command yields the verification code immediately and then polls inline until authenticated or timed out — no separate `auth status` call needed. This is recommended for agents that cannot relay the code while a separate polling command blocks their I/O channel.
+
+Run `auth status` before re-authenticating so you can inspect the current `scope` and `authorization_details`. Unless you intentionally want to downgrade access, make the next `auth login` request a superset of those existing permissions.
+
+Re-running `auth login` while already authenticated only short-circuits for identical scope-only access. The downgrade check always compares scopes exactly, but `authorization_details` are compared coarsely by `type` only. Any requested `source` access counts as covering existing `source` access, and explicit `--authorization-detail` entries only need to match the existing granted detail's `type` to count as covered. In `--format json` / agent mode, any prompt is written to `stderr` and expects `y` or `n` on `stdin`.
 
 `auth status` reports the `scope` and `authorization_details` the current session was granted (echoed by the token endpoint at login/refresh and stored in the credential file), and includes an `update` field when a newer version is available:
 

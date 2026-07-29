@@ -1,4 +1,5 @@
 import type { AuthStorage, JsonValue } from '@stripe/link-sdk';
+import { normalizeScopeInput } from '../../auth/scopes';
 
 export type AuthInfo =
   | {
@@ -33,13 +34,14 @@ export function resolveAuthInfo(
   const auth = authStorage.getAuth();
   const credentialsPath = authStorage.getPath();
   if (auth) {
+    const scope = normalizeScopeInput(auth.scope);
     return {
       authenticated: true,
       source: 'storage',
       tokenPreview: `${auth.access_token.substring(0, 20)}...`,
       tokenType: auth.token_type,
       credentialsPath,
-      ...(auth.scope && { scope: auth.scope }),
+      ...(scope && { scope }),
       ...(auth.authorization_details && {
         authorizationDetails: auth.authorization_details,
       }),

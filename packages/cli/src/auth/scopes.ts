@@ -5,8 +5,12 @@ export const DEFAULT_SCOPES = [
 
 export const DEFAULT_SCOPE = DEFAULT_SCOPES.join(' ');
 
+// split on either space or comma
 function parseScopeTokens(scope: string): string[] {
-  return scope.trim().split(/\s+/).filter(Boolean);
+  return scope
+    .trim()
+    .split(/[\s,]+/)
+    .filter(Boolean);
 }
 
 export function normalizeScopeInput(

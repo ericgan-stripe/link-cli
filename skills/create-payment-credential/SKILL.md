@@ -90,6 +90,8 @@ link-cli auth status
 
 When authenticated, the response also reports the session's granted `scope` and `authorization_details` (when the token endpoint returned them). If the response includes an `update` field, a newer version of `link-cli` is available — run the `update_command` from that field to upgrade before proceeding.
 
+If already logged in, run `auth status` before starting a new login flow. Inspect the current `scope` and `authorization_details`, and unless you intentionally want to reduce access, ensure any new `auth login` request is a superset of the currently granted permissions.
+
 If not authenticated:
 
 ```bash
@@ -100,9 +102,11 @@ Replace `<your-agent-name>` with the name of your agent or application (for exam
 
 The response includes a `_next` command — run it to poll until authenticated. If your environment cannot relay the verification code while a separate polling command blocks I/O, use inline polling instead: `auth login --client-name "<name>" --interval 5 --timeout 300`. This yields the code immediately then polls in the same command.
 
+If you re-run `auth login`, scope downgrade detection stays exact, but `authorization_details` downgrade detection is coarse and only compares `type`. Any requested `source` access counts as covering existing `source` access, and explicit `--authorization-detail` entries only need to match an existing granted detail's `type` to count as covered. In JSON/agent mode, answer any prompt on `stdin` with `y` or `n`; the prompt text is written to `stderr`.
+
 DO NOT PROCEED until the user is authenticated with Link.
 
-Always check the current authentication status before starting a new login flow — the user might already be logged in.
+Always check the current authentication status before starting a new login flow — the user might already be logged in. If they are, use that `auth status` output to preserve or expand permissions unless an explicit downgrade is intended.
 
 ### Step 2: Evaluate the merchant site BEFORE creating a spend request
 

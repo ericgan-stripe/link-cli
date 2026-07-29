@@ -1,14 +1,26 @@
-import { type AuthStorage, storage as defaultStorage } from '@stripe/link-sdk';
+import {
+  type AuthStorage,
+  type AuthTokens,
+  storage as defaultStorage,
+} from '@stripe/link-sdk';
 import { Cli } from 'incur';
 import { Text } from 'ink';
 import React from 'react';
-import { parseAuthorizationDetails } from '../../auth/authorization-details';
+import {
+  buildAuthorizationDetails,
+  parseAuthorizationDetails,
+} from '../../auth/authorization-details';
+import {
+  formatLoginAccessPrompt,
+  resolveLoginAccessPlan,
+} from '../../auth/login-access';
 import { normalizeScopeInput } from '../../auth/scopes';
 import type { IAuthResource, JsonValue } from '../../auth/types';
 import { pollUntil } from '../../utils/poll-until';
 import { renderInteractive } from '../../utils/render-interactive';
 import { sanitizeDeep } from '../../utils/sanitize-text';
 import type { UpdateInfoProvider } from '../../utils/update-info';
+import { confirmLoginAccess } from './confirm-login-access';
 import { Login } from './login';
 import { Logout } from './logout';
 import { loginOptions, statusOptions } from './schema';
@@ -34,12 +46,24 @@ async function* pollAuthStatus(
   for await (const result of pollUntil({
     fn: async () => {
       const pending = storage.getPendingDeviceAuth();
-      if (pending && !storage.isAuthenticated()) {
+      if (pending) {
         const tokens = await authResource.pollDeviceAuth(pending.device_code);
         if (tokens) {
           storage.setAuth(tokens);
           storage.clearPendingDeviceAuth();
         }
+      }
+
+      const currentPending = storage.getPendingDeviceAuth();
+      if (currentPending) {
+        return {
+          authenticated: false as const,
+          credentials_path: storage.getPath(),
+          ...(update && { update }),
+          pending: true,
+          verification_url: currentPending.verification_url,
+          phrase: currentPending.phrase,
+        };
       }
 
       const auth = storage.getAuth();
@@ -56,19 +80,10 @@ async function* pollAuthStatus(
           ...(update && { update }),
         };
       }
-
-      const currentPending = storage.getPendingDeviceAuth();
       return {
         authenticated: false as const,
         credentials_path: storage.getPath(),
         ...(update && { update }),
-        ...(currentPending
-          ? {
-              pending: true,
-              verification_url: currentPending.verification_url,
-              phrase: currentPending.phrase,
-            }
-          : {}),
       };
     },
     isTerminal: (status) => status.authenticated,
@@ -113,7 +128,7 @@ export function createAuthCli(
     outputPolicy: 'agent-only' as const,
     async *run(c) {
       const clientName = c.options.clientName?.trim();
-      const scope = normalizeScopeInput(c.options.scope);
+      let scope = normalizeScopeInput(c.options.scope);
       let authorizationDetails: JsonValue[] | undefined;
       if (!clientName || clientName.length === 0) {
         return c.error({
@@ -128,8 +143,12 @@ export function createAuthCli(
         });
       }
       try {
-        authorizationDetails = parseAuthorizationDetails(
-          c.options.authorizationDetail,
+        // Fold --source-action flags into the authorization details up front so
+        // downstream (the access plan and the login request) treats source like
+        // any other authorization-detail type.
+        authorizationDetails = buildAuthorizationDetails(
+          c.options.sourceActions,
+          parseAuthorizationDetails(c.options.authorizationDetail),
         );
       } catch (error) {
         return c.error({
@@ -145,26 +164,54 @@ export function createAuthCli(
             existingAuth.refresh_token,
           );
           storage.setAuth(refreshed);
+          // Figure out if this login attempt would unintentionally narrow access
+          const accessPlan = resolveLoginAccessPlan({
+            requestedScope: scope,
+            requestedAuthorizationDetails: authorizationDetails,
+            existingScope: refreshed.scope ?? existingAuth.scope,
+            existingAuthorizationDetails:
+              refreshed.authorization_details ??
+              existingAuth.authorization_details,
+          });
           const alreadyLoggedInMessage =
             'You are already logged in. To switch accounts, run `link-cli auth logout` first.';
-          const alreadyLoggedIn = sanitizeDeep({
-            authenticated: true,
-            message: alreadyLoggedInMessage,
-          });
-          if (!c.agent && !c.formatExplicit) {
-            return renderInteractive(
-              <Text color="yellow">{alreadyLoggedInMessage}</Text>,
-              () => alreadyLoggedIn,
-            );
+
+          if (accessPlan.shouldEarlyExit) {
+            const alreadyLoggedIn = sanitizeDeep({
+              authenticated: true,
+              message: alreadyLoggedInMessage,
+            });
+            if (!c.agent && !c.formatExplicit) {
+              return renderInteractive(
+                <Text color="yellow">{alreadyLoggedInMessage}</Text>,
+                () => alreadyLoggedIn,
+              );
+            }
+            yield alreadyLoggedIn;
+            return;
           }
-          yield alreadyLoggedIn;
-          return;
+
+          if (accessPlan.shouldPrompt) {
+            try {
+              const shouldAddExistingAccess = await confirmLoginAccess(
+                formatLoginAccessPrompt(accessPlan),
+              );
+
+              if (shouldAddExistingAccess) {
+                scope = accessPlan.mergedScope;
+                authorizationDetails = accessPlan.mergedAuthorizationDetails;
+              }
+            } catch (error) {
+              return c.error({
+                code: 'INVALID_INPUT',
+                message: (error as Error).message,
+              });
+            }
+          }
         } catch {
           // Session not usable — fall through to full re-auth below
         }
       }
-
-      await maybeRevokeAndClearAuth(authResource, storage);
 
       if (!c.agent && !c.formatExplicit) {
         return renderInteractive(
@@ -172,7 +219,6 @@ export function createAuthCli(
             authResource={authResource}
             clientName={clientName}
             scope={scope}
-            sourceActions={c.options.sourceActions}
             authorizationDetails={authorizationDetails}
             authStorage={storage}
             onComplete={() => {}}
@@ -184,7 +230,6 @@ export function createAuthCli(
       const authRequest = await authResource.initiateDeviceAuth({
         clientName,
         scope,
-        sourceActions: c.options.sourceActions,
         authorizationDetails,
       });
       storage.setPendingDeviceAuth({
