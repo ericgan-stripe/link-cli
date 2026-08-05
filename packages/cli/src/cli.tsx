@@ -1,5 +1,6 @@
 import { type AuthStorage, Storage, storage } from '@stripe/link-sdk';
 import { Cli } from 'incur';
+import { createAttestationsCli } from './commands/attestations';
 import { createAuthCli } from './commands/auth';
 import { createBalancesCli } from './commands/balances';
 import { createDemoCli } from './commands/demo';
@@ -113,6 +114,7 @@ if (!isAgent && process.stdout.isTTY) {
 }
 
 if (!hiddenCli) {
+  cli.command(createAttestationsCli());
   cli.command(
     createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
   );

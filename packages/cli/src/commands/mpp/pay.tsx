@@ -87,7 +87,13 @@ function createStripePaymentClient(spt: string) {
       },
       setCredential(request, credential) {
         const nextHeaders = new Headers(request.headers);
-        nextHeaders.set('Authorization', credential);
+        const existing = nextHeaders.get('Authorization');
+        // Compose with existing PrivateToken if present (AAP + MPP on same endpoint)
+        if (existing?.startsWith('PrivateToken ')) {
+          nextHeaders.set('Authorization', `${existing}, ${credential}`);
+        } else {
+          nextHeaders.set('Authorization', credential);
+        }
         return { ...request, headers: nextHeaders };
       },
     }),
