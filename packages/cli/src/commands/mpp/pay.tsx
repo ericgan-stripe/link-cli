@@ -99,7 +99,7 @@ export interface MppPayFullFlowOptions {
   method: string | undefined;
   data: string | undefined;
   headers: string[] | undefined;
-  context: string;
+  context?: string;
   amountOverride: number | undefined;
   paymentMethodId: string | undefined;
   test: boolean;
@@ -360,11 +360,6 @@ export function MppPay({
             repository,
           );
         } else {
-          if (!context) {
-            throw new Error(
-              '--context is required for the full MPP flow (min 100 chars)',
-            );
-          }
           payResult = await runMppPayFullFlow({
             url,
             method,

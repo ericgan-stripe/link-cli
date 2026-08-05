@@ -24,7 +24,7 @@ export const payOptions = z.object({
     .min(100)
     .optional()
     .describe(
-      'Min 100 chars — describe the purchase and rationale; the user reads this when approving. Required when --spend-request-id is not provided.',
+      'Min 100 chars — describe the purchase and rationale; the user reads this when approving. Required in agent mode when --spend-request-id is not provided.',
     ),
   amount: z.coerce
     .number()

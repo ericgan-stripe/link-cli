@@ -59,7 +59,7 @@ export interface CreateSpendRequestParams {
   currency?: string;
   merchant_name?: string;
   merchant_url?: string;
-  context: string;
+  context?: string;
   line_items?: LineItem[];
   totals?: Total[];
   request_approval?: boolean;
