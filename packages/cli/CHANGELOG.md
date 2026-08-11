@@ -1,5 +1,11 @@
 # @stripe/link-cli
 
+## 0.11.1
+
+### Patch Changes
+
+- f05d954: Dependency updgrades
+
 ## 0.11.0
 
 ### Minor Changes
