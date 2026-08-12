@@ -1336,11 +1336,12 @@ describe('production mode', () => {
       expect(txnRequest).toBeUndefined();
     });
 
-    it('does not show transactions in root help', async () => {
+    it('shows transactions in root help as beta', async () => {
       const result = await runProdCli('--help');
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).not.toContain('transactions');
+      expect(result.stdout + result.stderr).toContain('[beta]');
+      expect(result.stdout + result.stderr).toContain('transactions');
     });
   });
 
@@ -1416,11 +1417,12 @@ describe('production mode', () => {
       expect(sourcesRequest).toBeUndefined();
     });
 
-    it('does not show sources in root help', async () => {
+    it('shows sources in root help as beta', async () => {
       const result = await runProdCli('--help');
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).not.toContain('sources');
+      expect(result.stdout + result.stderr).toContain('[beta]');
+      expect(result.stdout + result.stderr).toContain('sources');
     });
   });
 
@@ -1495,11 +1497,12 @@ describe('production mode', () => {
       expect(balancesRequest).toBeUndefined();
     });
 
-    it('does not show balances in root help', async () => {
+    it('shows balances in root help as beta', async () => {
       const result = await runProdCli('--help');
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout + result.stderr).not.toContain('balances');
+      expect(result.stdout + result.stderr).toContain('[beta]');
+      expect(result.stdout + result.stderr).toContain('balances');
     });
   });
 
