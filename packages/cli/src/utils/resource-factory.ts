@@ -8,6 +8,7 @@ import {
   type ISourcesResource,
   type ISpendRequestResource,
   type ITransactionsResource,
+  type IUcpResource,
   type IUserInfoResource,
   type IWebBotAuthResource,
   LinkAuthenticationError,
@@ -17,6 +18,7 @@ import {
   SourcesResource,
   SpendRequestResource,
   TransactionsResource,
+  UcpResource,
   UserInfoResource,
   WebBotAuthResource,
 } from '@stripe/link-sdk';
@@ -90,6 +92,7 @@ export class ResourceFactory {
   private balancesResource?: IBalancesResource;
   private webBotAuthResource?: IWebBotAuthResource;
   private reportResource?: IReportResource;
+  private ucpResource?: IUcpResource;
 
   constructor(options: ResourceFactoryOptions = {}) {
     this.verbose = options.verbose ?? false;
@@ -309,5 +312,22 @@ export class ResourceFactory {
     );
 
     return this.reportResource;
+  }
+
+  createUcpResource(): IUcpResource {
+    if (this.ucpResource) {
+      return this.ucpResource;
+    }
+
+    const getAccessToken = this.createSdkAccessTokenProvider();
+    this.ucpResource = sanitizeResource(
+      new UcpResource({
+        verbose: this.verbose,
+        defaultHeaders: this.defaultHeaders,
+        getAccessToken,
+      }),
+    );
+
+    return this.ucpResource;
   }
 }

@@ -14,6 +14,7 @@ export * from './resources/transactions';
 export * from './resources/sources';
 export * from './resources/balances';
 export * from './resources/report';
+export * from './resources/ucp';
 export { MemoryStorage, Storage, storage } from './utils/storage';
 export type {
   AuthStorage,

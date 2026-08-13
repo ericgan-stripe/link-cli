@@ -12,6 +12,7 @@ import { createShippingAddressCli } from './commands/shipping-address';
 import { createSourcesCli } from './commands/sources';
 import { createSpendRequestCli } from './commands/spend-request';
 import { createTransactionsCli } from './commands/transactions';
+import { createUcpCli } from './commands/ucp';
 import { createUserInfoCli } from './commands/user-info';
 import { createWebBotAuthCli } from './commands/web-bot-auth';
 import { ResourceFactory } from './utils/resource-factory';
@@ -154,6 +155,13 @@ if (!hiddenCli) {
   cli.command(
     createReportCli(
       () => factory.createReportResource(),
+      authStorage,
+      envAccessToken,
+    ),
+  );
+  cli.command(
+    createUcpCli(
+      () => factory.createUcpResource(),
       authStorage,
       envAccessToken,
     ),
