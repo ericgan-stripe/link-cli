@@ -38,6 +38,20 @@ function normalizeSpendRequest(data: unknown): SpendRequest {
   return sr;
 }
 
+/**
+ * Extracts the conflicting spend request returned alongside a
+ * `spend_request_rate_limited` (429) error.
+ */
+export function getDuplicateSpendRequest(error: unknown): SpendRequest | null {
+  if (!(error instanceof LinkApiError)) return null;
+  const details = error.details as
+    | { error?: { duplicate_spend_request?: unknown } }
+    | undefined;
+  const duplicate = details?.error?.duplicate_spend_request;
+  if (!duplicate || typeof duplicate !== 'object') return null;
+  return normalizeSpendRequest(duplicate);
+}
+
 function extractApiError(data: unknown, rawBody: string): string {
   if (data && typeof data === 'object') {
     const body = data as Record<string, unknown>;
