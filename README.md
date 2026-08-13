@@ -224,7 +224,7 @@ With `--interval`, the login command yields the verification code immediately an
 ```json
 {
   "authenticated": true,
-  "scope": "userinfo:read payment_methods.agentic",
+  "scope": "userinfo:read payment_methods.agentic aap:represent",
   "authorization_details": [{ "type": "source", "actions": ["read"] }],
   "update": {
     "current_version": "0.1.2",

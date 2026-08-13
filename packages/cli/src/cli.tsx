@@ -3,11 +3,13 @@ import { Cli } from 'incur';
 import { createAttestationsCli } from './commands/attestations';
 import { createAuthCli } from './commands/auth';
 import { createBalancesCli } from './commands/balances';
+import { createCredentialsCli } from './commands/credentials';
 import { createDemoCli } from './commands/demo';
 import { createMppCli } from './commands/mpp';
 import { createOnboardCli } from './commands/onboard';
 import { createPaymentMethodsCli } from './commands/payment-methods';
 import { createReportCli } from './commands/report';
+import { createRequestCli } from './commands/request';
 import { createServeCli } from './commands/serve';
 import { createShippingAddressCli } from './commands/shipping-address';
 import { createSourcesCli } from './commands/sources';
@@ -114,7 +116,19 @@ if (!isAgent && process.stdout.isTTY) {
 }
 
 if (!hiddenCli) {
-  cli.command(createAttestationsCli());
+  cli.command(
+    createAttestationsCli(async () => factory.getAccessTokenProvider()({})),
+  );
+  cli.command(
+    createCredentialsCli(async () => factory.getAccessTokenProvider()({})),
+  );
+  cli.command(
+    createRequestCli(
+      async () => factory.getAccessTokenProvider()({}),
+      authStorage,
+      envAccessToken,
+    ),
+  );
   cli.command(
     createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
   );

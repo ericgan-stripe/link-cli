@@ -57,13 +57,14 @@ function bigIntToBytes(n: bigint, length: number): Uint8Array {
 
 function modPow(base: bigint, exp: bigint, mod: bigint): bigint {
   let result = 1n;
-  base = ((base % mod) + mod) % mod;
-  while (exp > 0n) {
-    if (exp & 1n) {
-      result = (result * base) % mod;
+  let b = ((base % mod) + mod) % mod;
+  let e = exp;
+  while (e > 0n) {
+    if (e & 1n) {
+      result = (result * b) % mod;
     }
-    exp >>= 1n;
-    base = (base * base) % mod;
+    e >>= 1n;
+    b = (b * b) % mod;
   }
   return result;
 }
@@ -80,34 +81,87 @@ function modInverse(a: bigint, m: bigint): bigint {
 }
 
 function parseSpkiPublicKey(spkiDer: Uint8Array): RsaPublicKey {
-  // Parse the SPKI DER to extract modulus and exponent.
-  // SPKI structure: SEQUENCE { SEQUENCE { OID, params }, BIT STRING { RSAPublicKey } }
-  // RSAPublicKey: SEQUENCE { INTEGER modulus, INTEGER exponent }
-  const asn1 = parseDerSequence(spkiDer, 0);
-  const bitStringContent = findBitString(spkiDer);
-  const rsaPubKey = parseDerSequence(bitStringContent, 0);
+  // SubjectPublicKeyInfo ::= SEQUENCE { algorithm AlgorithmIdentifier, subjectPublicKey BIT STRING }
+  // RSAPublicKey ::= SEQUENCE { modulus INTEGER, publicExponent INTEGER }
+  //
+  // The DER must be walked structurally, not scanned for tag bytes: an
+  // id-RSASSA-PSS AlgorithmIdentifier carries nested hash/MGF1/saltLength
+  // parameters whose bytes include values that look like BIT STRING and
+  // INTEGER tags.
+  const spki = readSequence(spkiDer, 0);
 
-  const integers = findIntegers(bitStringContent);
-  if (integers.length < 2) {
-    throw new Error('Failed to parse RSA public key from SPKI');
+  // Skip the AlgorithmIdentifier, then read the BIT STRING that follows it.
+  const algorithm = readTlv(spkiDer, spki.contentStart);
+  const bitString = readTlv(spkiDer, algorithm.end);
+  if (bitString.tag !== 0x03) {
+    throw new Error(
+      `Expected BIT STRING in SPKI, got 0x${bitString.tag.toString(16)}`,
+    );
   }
 
-  const n = bytesToBigInt(integers[0]);
-  const e = bytesToBigInt(integers[1]);
-  const nLen = integers[0].length;
+  // First content byte of a BIT STRING is the unused-bits count (0 here).
+  const rsaPublicKeyDer = spkiDer.slice(
+    bitString.contentStart + 1,
+    bitString.end,
+  );
 
-  return { n, e, nLen };
+  const rsaPublicKey = readSequence(rsaPublicKeyDer, 0);
+  const modulus = readInteger(rsaPublicKeyDer, rsaPublicKey.contentStart);
+  const exponent = readInteger(rsaPublicKeyDer, modulus.end);
+
+  return {
+    n: bytesToBigInt(modulus.value),
+    e: bytesToBigInt(exponent.value),
+    nLen: modulus.value.length,
+  };
 }
 
-function parseDerSequence(
+interface Tlv {
+  tag: number;
+  contentStart: number;
+  end: number;
+}
+
+function readTlv(data: Uint8Array, offset: number): Tlv {
+  if (offset >= data.length) {
+    throw new Error(`Unexpected end of DER at offset ${offset}`);
+  }
+  const tag = data[offset];
+  const { value: length, bytesRead } = parseDerLength(data, offset + 1);
+  const contentStart = offset + 1 + bytesRead;
+  const end = contentStart + length;
+  if (end > data.length) {
+    throw new Error(`DER element at offset ${offset} overruns the buffer`);
+  }
+  return { tag, contentStart, end };
+}
+
+function readSequence(data: Uint8Array, offset: number): Tlv {
+  const tlv = readTlv(data, offset);
+  if (tlv.tag !== 0x30) {
+    throw new Error(
+      `Expected SEQUENCE at offset ${offset}, got 0x${tlv.tag.toString(16)}`,
+    );
+  }
+  return tlv;
+}
+
+function readInteger(
   data: Uint8Array,
   offset: number,
-): { start: number; length: number } {
-  if (data[offset] !== 0x30) {
-    throw new Error(`Expected SEQUENCE at offset ${offset}, got 0x${data[offset].toString(16)}`);
+): { value: Uint8Array; end: number } {
+  const tlv = readTlv(data, offset);
+  if (tlv.tag !== 0x02) {
+    throw new Error(
+      `Expected INTEGER at offset ${offset}, got 0x${tlv.tag.toString(16)}`,
+    );
   }
-  const { value: length, bytesRead } = parseDerLength(data, offset + 1);
-  return { start: offset + 1 + bytesRead, length };
+  let value = data.slice(tlv.contentStart, tlv.end);
+  // Strip the DER sign byte.
+  if (value.length > 1 && value[0] === 0x00) {
+    value = value.slice(1);
+  }
+  return { value, end: tlv.end };
 }
 
 function parseDerLength(
@@ -121,52 +175,9 @@ function parseDerLength(
   const numBytes = first & 0x7f;
   let value = 0;
   for (let i = 0; i < numBytes; i++) {
-    value = (value << 8) | data[offset + 1 + i];
+    value = value * 256 + data[offset + 1 + i];
   }
   return { value, bytesRead: 1 + numBytes };
-}
-
-function findBitString(data: Uint8Array): Uint8Array {
-  // Walk DER to find BIT STRING (0x03), skip the unused-bits byte
-  for (let i = 0; i < data.length - 1; i++) {
-    if (data[i] === 0x03) {
-      const { value: length, bytesRead } = parseDerLength(data, i + 1);
-      const contentStart = i + 1 + bytesRead;
-      // First byte of BIT STRING content is "unused bits" count (should be 0),
-      // remaining length-1 bytes are the actual content
-      return data.slice(contentStart + 1, contentStart + length);
-    }
-  }
-  throw new Error('No BIT STRING found in SPKI');
-}
-
-function findIntegers(data: Uint8Array): Uint8Array[] {
-  const results: Uint8Array[] = [];
-  let i = 0;
-
-  // Skip the outer SEQUENCE tag+length
-  if (data[i] === 0x30) {
-    const { bytesRead } = parseDerLength(data, i + 1);
-    i += 1 + bytesRead;
-  }
-
-  while (i < data.length) {
-    if (data[i] === 0x02) {
-      const { value: length, bytesRead } = parseDerLength(data, i + 1);
-      const contentStart = i + 1 + bytesRead;
-      let intBytes = data.slice(contentStart, contentStart + length);
-      // Strip leading zero byte (sign byte)
-      if (intBytes[0] === 0x00 && intBytes.length > 1) {
-        intBytes = intBytes.slice(1);
-      }
-      results.push(intBytes);
-      i = contentStart + length;
-    } else {
-      i++;
-    }
-  }
-
-  return results;
 }
 
 // EMSA-PSS encoding for RSA-PSS (RFC 8017 §9.1.1) with SHA-384
@@ -222,7 +233,10 @@ function mgf1(seed: Buffer, length: number, hashAlg: string): Buffer {
   return result;
 }
 
-function generateBlindingFactor(n: bigint, nLen: number): { r: bigint; rInv: bigint } {
+function generateBlindingFactor(
+  n: bigint,
+  nLen: number,
+): { r: bigint; rInv: bigint } {
   // Generate random r coprime to n
   while (true) {
     const rBytes = randomBytes(nLen);
@@ -255,7 +269,9 @@ export function generateBlindedMessages(
     const nonce = new Uint8Array(randomBytes(NONCE_SIZE));
 
     // token_input = token_type(2) || nonce(32) || challenge_digest(32) || token_key_id(32)
-    const tokenInput = new Uint8Array(2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE);
+    const tokenInput = new Uint8Array(
+      2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE,
+    );
     tokenInput[0] = (TOKEN_TYPE >> 8) & 0xff;
     tokenInput[1] = TOKEN_TYPE & 0xff;
     tokenInput.set(nonce, 2);
@@ -306,13 +322,22 @@ export function unblindSignatures(
     const authenticator = bigIntToBytes(sigInt, publicKey.nLen);
 
     // Assemble final token: token_type(2) || nonce(32) || challenge_digest(32) || token_key_id(32) || authenticator(Nk)
-    const raw = new Uint8Array(2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE + publicKey.nLen);
+    const raw = new Uint8Array(
+      2 +
+        NONCE_SIZE +
+        CHALLENGE_DIGEST_SIZE +
+        TOKEN_KEY_ID_SIZE +
+        publicKey.nLen,
+    );
     raw[0] = (TOKEN_TYPE >> 8) & 0xff;
     raw[1] = TOKEN_TYPE & 0xff;
     raw.set(tokens[i].nonce, 2);
     raw.set(state.challengeDigest, 2 + NONCE_SIZE);
     raw.set(tokenKeyId, 2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE);
-    raw.set(authenticator, 2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE);
+    raw.set(
+      authenticator,
+      2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE,
+    );
 
     results.push({
       raw,
@@ -331,7 +356,9 @@ export function computeChallengeDigest(
   // TokenChallenge struct per RFC 9577 §2.1:
   // token_type(2) || issuer_name length(2) || issuer_name || redemption_context length(1) || redemption_context || origin_info length(2) || origin_info
   const issuerBytes = Buffer.from(issuerName, 'utf-8');
-  const originBytes = originInfo ? Buffer.from(originInfo, 'utf-8') : Buffer.alloc(0);
+  const originBytes = originInfo
+    ? Buffer.from(originInfo, 'utf-8')
+    : Buffer.alloc(0);
 
   const challenge = Buffer.alloc(
     2 + 2 + issuerBytes.length + 1 + 2 + originBytes.length,

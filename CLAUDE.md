@@ -47,7 +47,7 @@ Commands in `packages/cli/src/cli.tsx` (incur framework). Each has two output mo
 - **Interactive** (default): Ink/React components from `packages/cli/src/commands/`
 - **JSON** (`--format json`): JSON to stdout, errors as JSON with `code` and `message` fields with exit code 1
 
-Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `serve`.
+Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `attestations request`, `credentials issue`, `request`, `serve`.
 
 The CLI also runs as an MCP server (`--mcp`) and serves skill files via `skills` subcommand, both provided by incur.
 
@@ -93,6 +93,38 @@ Key input field notes:
 ### onboard command
 
 - `onboard` — Guided setup: authenticates (skips if already logged in), checks payment methods (prompts to add one if missing, shows picker if multiple), shows app download QR code, then runs the full demo. Requires a TTY.
+
+### attestations command (AAP)
+
+`attestations request --count <n> [--issuer <url>] [--target-origin <origin>] [--access-token <t>]` — mints Agent Attestation Tokens via the Privacy Pass Blind RSA protocol (token type `0x0002`, RFC 9578 / RFC 9577). Agent-only output (no interactive mode). Implemented in `packages/cli/src/commands/attestations/`: `blind-rsa.ts` (blinding, EMSA-PSS with SHA-384, unblinding, SPKI parsing), `request.ts` (the issuance flow), `schema.ts`, `index.tsx`.
+
+- Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. Default issuer `https://api.link.com`.
+- The served `token-key` is an **`id-RSASSA-PSS`** SPKI, whose algorithm parameters contain bytes that look like BIT STRING/INTEGER tags. The DER must be walked structurally — scanning for tag bytes mis-parses it. Node's `createPublicKey` can parse this key but cannot export it as JWK or PKCS#1, which is why the modulus is parsed by hand.
+- Issuance is **binary**, not JSON (`Content-Type: application/private-token-request`). Request is a `BatchTokenRequest`: `uint16` byte-length prefix + N × (`uint16` token_type ‖ `uint8` truncated_token_key_id ‖ 256-byte blinded_msg). Response is a `BatchTokenResponse`: `uint16` prefix + N × 256-byte blind signatures. `truncated_token_key_id` is the **last byte** of SHA-256(SPKI DER); a mismatch is a 400 "unknown token key".
+- Server-side max batch is 100, rate-limited hourly per (consumer, client). Requires the `aap:represent` scope.
+- Token order in the response matches request order — unblinding is positional.
+- Auth: `--access-token`, else `AAP_ACCESS_TOKEN`, else the stored CLI credentials.
+
+### credentials command (AAP)
+
+`credentials issue [--key-file <path>] [--key-type ed25519|p256] [--access-token <t>]` — mints a short-lived (1h) holder-bound SD-JWT-VC with the user's identity claims (`email`, `phone_number`, `given_name`, `family_name`). Agent-only output. Implemented in `packages/cli/src/commands/credentials/`.
+
+- `POST /credentials` with `{"cnf": {"jwk": <public JWK>}}` (RFC 7800 key confirmation). The issuer validates the holder key strictly: only `OKP`/`Ed25519` (`kty`, `crv`, `x`) or `EC`/`P-256` (plus `y`), unpadded base64url, 32-byte members, on-curve, and **no extra members and no `d`** — so only the allowed members may be sent.
+- The holder key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs: the credential is bound to it and presenting the credential later requires signing a KB-JWT with it.
+- The result includes `claims` decoded from the credential's `~`-separated disclosures (each is base64url of `[salt, name, value]`).
+- Requires the `aap:represent`, `userinfo:read` and `payment_methods.agentic` scopes.
+- **Gated server-side** by the `enable_agent_credentials_endpoint` feature flag, which short-circuits with a 404 *before* auth. A 404 whose body is `{"error":{"message":"Not found"}}` means the flag is off; nginx's "Unrecognized request URL" means the route isn't deployed.
+- Respects `LINK_API_BASE_URL`.
+
+### request command (AAP)
+
+`request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — makes an HTTP request that satisfies an identity-claims challenge, collapsing the whole disclosure flow into one command. Agent-only output. Implemented in `packages/cli/src/commands/request/`: `present.ts` (challenge parsing, presentation + KB-JWT construction), `schema.ts`, `index.tsx`.
+
+- Sends the request; if the response is **401 with a JSON body whose `type` is `urn:aap:claims-required`**, it issues a credential (reusing `issueCredential`), builds an SD-JWT-VC presentation, and retries with an `Identity-Presentation` header. Any other response is passed straight through with `identity_required: false` — no credential is minted.
+- `--claims` is a comma-separated allowlist of what to disclose; defaults to exactly the challenge's `claims`. Disclosing *less* than the server requires is allowed here and rejected by the server — useful for demoing that the holder controls disclosure.
+- Errors with `CLAIMS_UNAVAILABLE` *before* sending anything if the credential doesn't hold a requested claim.
+- The KB-JWT binds `aud` (from the challenge), `nonce` (single-use), and `sd_hash` (SHA-256 over the presentation up to and including the final `~`) — so a presentation can't be replayed or trimmed after signing. Signed with the holder key: `EdDSA` for ed25519, `ES256` (raw r‖s via `dsaEncoding: 'ieee-p1363'`, not DER) for p256.
+- **Gotcha:** root-level `Cli.create` commands don't accept `middleware`, so the auth check calls `requireAuthGuard(c, ...)` inline instead of `requireAuth(...)`.
 
 ### serve command
 

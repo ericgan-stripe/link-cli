@@ -1504,7 +1504,9 @@ describe('production mode', () => {
       );
       expect(deviceCodeRequest).toBeDefined();
       const params = new URLSearchParams(deviceCodeRequest?.body);
-      expect(params.get('scope')).toBe('userinfo:read payment_methods.agentic');
+      expect(params.get('scope')).toBe(
+        'userinfo:read payment_methods.agentic aap:represent',
+      );
       expect(params.get('authorization_details')).toBeNull();
       expect(params.getAll('authorization_details[][type]')).toEqual([
         'source',
@@ -1592,7 +1594,9 @@ describe('production mode', () => {
       const params = new URLSearchParams(deviceCodeRequest?.body);
       expect(params.get('client_hint')).toBe('My Agent');
       expect(params.get('connection_label')).toContain('My Agent on ');
-      expect(params.get('scope')).toBe('userinfo:read payment_methods.agentic');
+      expect(params.get('scope')).toBe(
+        'userinfo:read payment_methods.agentic aap:represent',
+      );
 
       // Returns immediately with verification URL and _next hint
       const output = parseJson(result.stdout) as Record<string, unknown>[];

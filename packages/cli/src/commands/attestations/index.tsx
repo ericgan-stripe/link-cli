@@ -1,7 +1,7 @@
 import { Cli } from 'incur';
 import { requestOptions } from './schema';
 
-export function createAttestationsCli() {
+export function createAttestationsCli(getAccessToken?: () => Promise<string>) {
   const cli = Cli.create('attestations', {
     description: 'Agent Attestation Token (AAT) commands',
   });
@@ -12,14 +12,15 @@ export function createAttestationsCli() {
     options: requestOptions,
     outputPolicy: 'agent-only' as const,
     async run(c) {
-      const { count, issuer, origin, accessToken } = c.options;
+      const { count, issuer, targetOrigin, accessToken } = c.options;
 
       const { requestAttestationTokens } = await import('./request');
       return requestAttestationTokens({
         issuer,
         count,
-        origin,
+        targetOrigin,
         accessToken,
+        getAccessToken,
       });
     },
   });
