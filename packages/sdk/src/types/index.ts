@@ -276,11 +276,31 @@ export interface WebBotAuthBlock {
 }
 
 /**
+ * A single purchasable variant nested under a `UcpProduct`. Real catalog
+ * search responses group results by product and put the fields needed to
+ * check out (`profile_id`, `merchant_sku`, `price`) on each variant rather
+ * than on the parent product.
+ */
+export interface UcpProductVariant {
+  merchant_sku?: string;
+  profile_id?: string;
+  merchant_name?: string;
+  price?: { amount?: number; currency?: string };
+  availability?: { status?: string };
+  title?: string;
+  [key: string]: unknown;
+}
+
+/**
  * A product returned by UCP catalog search, mirroring the upstream
  * `CatalogSearchProduct` (real fields are `sku` and `title`, and every product
  * carries a `profile_id` used to create a checkout). The api.link.com contract
  * keeps the resource loose, so fields beyond these are passed through verbatim
  * via the index signature. `sku_id`/`name` are accepted as aliases.
+ *
+ * In practice, responses are grouped by product with the checkout-relevant
+ * fields (`profile_id`, sku, price) nested under `variants` instead of on the
+ * product itself — see `UcpProductVariant`.
  */
 export interface UcpProduct {
   sku?: string;
@@ -304,6 +324,8 @@ export interface UcpProduct {
   link?: string;
   item_group_id?: string;
   item_group_title?: string;
+  variants?: UcpProductVariant[];
+  first_variant_price?: { amount?: number; currency?: string };
   /** Legacy/alias fields from the checkout PR's demo shape. */
   sku_id?: string;
   name?: string;

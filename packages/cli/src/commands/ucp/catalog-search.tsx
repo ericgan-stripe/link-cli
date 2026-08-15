@@ -15,9 +15,100 @@ interface CatalogSearchProps {
   onComplete: (result: UcpSearchResult | null) => void;
 }
 
+interface CatalogRow {
+  sku: string;
+  title: string;
+  price: string;
+  availability: string;
+  merchant: string;
+  networkId: string;
+}
+
+const TITLE_MAX_WIDTH = 30;
+
 function formatPrice(price?: number, currency?: string): string {
   if (price == null) return '';
   return `$${(price / 100).toFixed(2)} ${(currency ?? 'usd').toUpperCase()}`;
+}
+
+function toRow(product: UcpSearchResult['data'][number]): CatalogRow {
+  const firstVariant = product.variants?.[0];
+  const sku = product.sku ?? product.sku_id ?? firstVariant?.merchant_sku;
+  const title = product.title ?? product.name ?? firstVariant?.title;
+  const priceAmount =
+    product.sale_price ??
+    product.price ??
+    firstVariant?.price?.amount ??
+    product.first_variant_price?.amount;
+  const priceCurrency =
+    product.currency ??
+    firstVariant?.price?.currency ??
+    product.first_variant_price?.currency;
+  const availability =
+    product.availability ?? firstVariant?.availability?.status;
+  const networkId = product.profile_id ?? firstVariant?.profile_id;
+  const merchant = product.merchant_name ?? firstVariant?.merchant_name;
+  return {
+    sku: sku ?? '—',
+    title: title ?? '—',
+    price: formatPrice(priceAmount, priceCurrency) || '—',
+    availability: availability ?? '—',
+    merchant: merchant ?? '—',
+    networkId: networkId ?? '—',
+  };
+}
+
+function truncate(value: string, width: number): string {
+  if (value.length <= width) return value;
+  return `${value.slice(0, Math.max(0, width - 1))}…`;
+}
+
+// Identifier columns (SKU, network id) are never truncated — they must be
+// copyable verbatim into `ucp checkout create`. Only the display-only title
+// column is capped.
+function columnWidths(rows: CatalogRow[]) {
+  const widthOf = (header: string, values: string[], cap?: number) => {
+    const max = Math.max(header.length, ...values.map((v) => v.length));
+    return cap ? Math.min(max, cap) : max;
+  };
+  return {
+    sku: widthOf(
+      'SKU',
+      rows.map((r) => r.sku),
+    ),
+    title: widthOf(
+      'TITLE',
+      rows.map((r) => r.title),
+      TITLE_MAX_WIDTH,
+    ),
+    price: widthOf(
+      'PRICE',
+      rows.map((r) => r.price),
+    ),
+    availability: widthOf(
+      'AVAIL',
+      rows.map((r) => r.availability),
+    ),
+    merchant: widthOf(
+      'MERCHANT',
+      rows.map((r) => r.merchant),
+    ),
+  };
+}
+
+function formatRow(
+  row: Record<'sku' | 'title' | 'price' | 'availability' | 'merchant', string>,
+  networkId: string,
+  widths: ReturnType<typeof columnWidths>,
+): string {
+  return [
+    row.sku.padEnd(widths.sku),
+    truncate(row.title, widths.title).padEnd(widths.title),
+    row.price.padEnd(widths.price),
+    row.availability.padEnd(widths.availability),
+    row.merchant.padEnd(widths.merchant),
+    networkId,
+  ].join(' ');
 }
 
 export const CatalogSearch: React.FC<CatalogSearchProps> = ({
@@ -67,6 +158,9 @@ export const CatalogSearch: React.FC<CatalogSearchProps> = ({
     );
   }
 
+  const rows = products.map(toRow);
+  const widths = columnWidths(rows);
+
   return (
     <Box flexDirection="column">
       <Text bold>
@@ -76,37 +170,33 @@ export const CatalogSearch: React.FC<CatalogSearchProps> = ({
           {data?.has_more ? '+' : ''})
         </Text>
       </Text>
-      <Box flexDirection="column" marginTop={1}>
-        {products.map((product, index) => {
-          const sku = product.sku ?? product.sku_id;
-          const title = product.title ?? product.name;
-          const price = formatPrice(
-            product.sale_price ?? product.price,
-            product.currency,
-          );
-          return (
-            <Box key={sku ?? String(index)} flexDirection="column" paddingX={2}>
-              <Text>
-                <Text dimColor>{sku ?? '—'}</Text>
-                {title ? `  ${title}` : ''}
-                {product.brand ? `  ${product.brand}` : ''}
-                {price ? `  ${price}` : ''}
-                {product.availability ? `  (${product.availability})` : ''}
-              </Text>
-              {product.profile_id ? (
-                <Text dimColor>
-                  {'  '}network id: {product.profile_id}
-                  {product.merchant_name ? `  (${product.merchant_name})` : ''}
-                </Text>
-              ) : null}
-            </Box>
-          );
-        })}
+      <Box flexDirection="column" marginTop={1} paddingX={2}>
+        <Text bold>
+          {formatRow(
+            {
+              sku: 'SKU',
+              title: 'TITLE',
+              price: 'PRICE',
+              availability: 'AVAIL',
+              merchant: 'MERCHANT',
+            },
+            'NETWORK ID',
+            widths,
+          )}
+        </Text>
+        {rows.map((row, index) => (
+          <Text key={row.sku !== '—' ? row.sku : String(index)}>
+            {formatRow(row, row.networkId, widths)}
+          </Text>
+        ))}
       </Box>
       <Box marginTop={1}>
         <Text dimColor>
-          Create a checkout with a network id and SKUs:{' '}
-          <Text color="cyan">ucp checkout create --network-id ...</Text>
+          Create a checkout with a SKU and its network id:{' '}
+          <Text color="cyan">
+            ucp checkout create --network-id &lt;NETWORK ID&gt; --line-item
+            "sku_id:&lt;SKU&gt;,quantity:1"
+          </Text>
         </Text>
       </Box>
     </Box>

@@ -90,6 +90,51 @@ describe('ucp catalog search component', () => {
     });
   });
 
+  it('falls back to variant fields when sku/price/profile_id/availability live on variants[0] (real grouped-by-product API shape)', async () => {
+    const repo = makeResource({
+      searchCatalog: vi.fn(async () => ({
+        data: [
+          {
+            id: 'CJPB158377701AZ',
+            name: 'Breathable Running Shoes',
+            brand: 'Poemusart',
+            first_variant_price: { amount: 50, currency: 'usd' },
+            variants: [
+              {
+                merchant_sku: 'CJPB158377701AZ',
+                merchant_name: 'Poemusart Inc.',
+                profile_id: 'profile_61UnURSooufCZI1dNA6UnURR8PSQ9lq8RrWwUUOkq64m',
+                price: { amount: 50, currency: 'usd' },
+                availability: { status: 'in_stock' },
+              },
+            ],
+          },
+        ],
+        total_count: 1,
+      })),
+    });
+
+    const { lastFrame } = render(
+      <CatalogSearch
+        repository={repo}
+        params={{ query: 'running shoes' }}
+        onComplete={() => {}}
+      />,
+    );
+
+    await vi.waitFor(() => {
+      const frame = lastFrame();
+      expect(frame).toContain('CJPB158377701AZ');
+      expect(frame).toContain('Breathable Running Shoes');
+      expect(frame).toContain('$0.50 USD');
+      expect(frame).toContain('in_stock');
+      expect(frame).toContain(
+        'profile_61UnURSooufCZI1dNA6UnURR8PSQ9lq8RrWwUUOkq64m',
+      );
+      expect(frame).toContain('Poemusart Inc.');
+    });
+  });
+
   it('renders an empty state when there are no products', async () => {
     const repo = makeResource({
       searchCatalog: vi.fn(async () => ({ data: [], total_count: 0 })),
