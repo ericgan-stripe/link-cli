@@ -1,10 +1,10 @@
 import type {
-  AuthStorage,
   IPaymentMethodsResource,
   ISpendRequestResource,
 } from '@stripe/link-sdk';
 import { Cli, z } from 'incur';
 import React from 'react';
+import type { CliAuthStorage } from '../../auth/storage';
 import { renderInteractive } from '../../utils/render-interactive';
 import { requireAuth } from '../../utils/require-auth';
 import { decodeStripeChallenge } from './decode';
@@ -22,7 +22,7 @@ import { decodeOptions, payOptions } from './schema';
 export function createMppCli(
   repository: ISpendRequestResource,
   paymentMethodsFactory: () => IPaymentMethodsResource,
-  authStorage?: AuthStorage,
+  authStorage?: CliAuthStorage,
   envAccessToken?: string,
 ) {
   const cli = Cli.create('mpp', {

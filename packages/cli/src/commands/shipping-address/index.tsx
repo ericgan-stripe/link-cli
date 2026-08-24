@@ -1,13 +1,14 @@
-import type { AuthStorage, IShippingAddressResource } from '@stripe/link-sdk';
+import type { IShippingAddressResource } from '@stripe/link-sdk';
 import { Cli } from 'incur';
 import React from 'react';
+import type { CliAuthStorage } from '../../auth/storage';
 import { renderInteractive } from '../../utils/render-interactive';
 import { requireAuth } from '../../utils/require-auth';
 import { ShippingAddressList } from './list';
 
 export function createShippingAddressCli(
   createResource: () => IShippingAddressResource,
-  authStorage?: AuthStorage,
+  authStorage?: CliAuthStorage,
   envAccessToken?: string,
 ) {
   const cli = Cli.create('shipping-address', {

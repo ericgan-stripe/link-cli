@@ -4,28 +4,6 @@ export type JsonValue =
   | JsonValue[]
   | { [key: string]: JsonValue };
 
-export interface DeviceAuthRequest {
-  device_code: string;
-  user_code: string;
-  verification_url: string;
-  verification_url_complete: string;
-  expires_in: number;
-  interval: number;
-}
-
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-  /** Absolute epoch-ms when the access token expires (computed on store). */
-  expires_at?: number;
-  /** Space-separated scopes granted for this session (echoed by the token endpoint). */
-  scope?: string;
-  /** Authorization details granted for this session (echoed by the token endpoint). */
-  authorization_details?: JsonValue[];
-}
-
 export interface LineItem {
   name: string;
   url?: string;

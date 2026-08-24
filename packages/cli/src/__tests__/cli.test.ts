@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process';
 import http from 'node:http';
 import { promisify } from 'node:util';
-import { storage } from '@stripe/link-sdk';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { storage } from '../auth/storage';
 
 const execFileAsync = promisify(execFile);
 
@@ -27,7 +27,7 @@ function parseJson(raw: string): unknown {
 
 beforeEach(() => {
   storage.clearAll();
-  storage.setAuth(AUTH_TOKENS);
+  storage.setTokens(AUTH_TOKENS);
 });
 
 afterAll(() => {
@@ -212,7 +212,7 @@ describe('production mode', () => {
     responsesByUrl = {};
     merchantRequests = [];
     merchantResponses = [];
-    storage.setAuth(PROD_AUTH_TOKENS);
+    storage.setTokens(PROD_AUTH_TOKENS);
     setNextResponse(200, BASE_REQUEST);
   });
 
@@ -1302,7 +1302,7 @@ describe('production mode', () => {
     });
 
     it('rejects unauthenticated requests before hitting the API', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli('shipping-address', 'list', '--json');
 
@@ -1413,7 +1413,7 @@ describe('production mode', () => {
     });
 
     it('rejects unauthenticated requests before hitting the API', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli('transactions', 'list', '--json');
 
@@ -1494,7 +1494,7 @@ describe('production mode', () => {
     });
 
     it('rejects unauthenticated requests before hitting the API', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli('sources', 'list', '--json');
 
@@ -1574,7 +1574,7 @@ describe('production mode', () => {
     });
 
     it('rejects unauthenticated requests before hitting the API', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli('balances', 'list', '--json');
 
@@ -1670,7 +1670,7 @@ describe('production mode', () => {
     });
 
     it('passes a normalized custom --scope to /device/code', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1694,7 +1694,7 @@ describe('production mode', () => {
     });
 
     it('does not translate source-related --scope values into authorization_details', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1721,7 +1721,7 @@ describe('production mode', () => {
     });
 
     it('passes source actions via authorization_details', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1754,7 +1754,7 @@ describe('production mode', () => {
     });
 
     it('passes freeform authorization_details entries after source actions', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1886,7 +1886,7 @@ describe('production mode', () => {
     });
 
     it('skips revoke when not previously authenticated', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -1905,7 +1905,7 @@ describe('production mode', () => {
     });
 
     it('with --interval, yields code first then polls until authenticated', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/revoke', 200, 'ok');
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
       setResponseForUrl('/device/token', 200, TOKEN_RESPONSE);
@@ -1935,7 +1935,7 @@ describe('production mode', () => {
     });
 
     it('with --interval, yields unauthenticated status on timeout (exit 0)', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
       setResponseForUrl('/device/token', 400, {
         error: 'authorization_pending',
@@ -1960,7 +1960,7 @@ describe('production mode', () => {
     });
 
     it('with --interval, exits with error on access_denied', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/revoke', 200, 'ok');
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
       setResponseForUrl('/device/token', 400, { error: 'access_denied' });
@@ -2025,7 +2025,7 @@ describe('production mode', () => {
       // Deferred lifecycle: the existing session is preserved (NOT cleared) and
       // the pending is flagged so the poll completes the new approval and
       // revokes the old grant only once the widened tokens land.
-      expect(storage.getAuth()).not.toBeNull();
+      expect(storage.getTokens()).not.toBeNull();
       expect(storage.getPendingDeviceAuth()?.replaces_existing_session).toBe(
         true,
       );
@@ -2139,7 +2139,7 @@ describe('production mode', () => {
     });
 
     it('warns and continues when there is no active session', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
       setResponseForUrl('/device/code', 200, DEVICE_CODE_RESPONSE);
 
       const result = await runProdCli(
@@ -2255,7 +2255,7 @@ describe('production mode', () => {
     });
 
     it('succeeds when no auth tokens are stored', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli('auth', 'logout', '--format', 'json');
 
@@ -2271,7 +2271,7 @@ describe('production mode', () => {
 
   describe('auth guard', () => {
     it('rejects unauthenticated requests before hitting the API', async () => {
-      storage.clearAuth();
+      storage.clearTokens();
 
       const result = await runProdCli(
         'spend-request',
@@ -2300,7 +2300,7 @@ describe('production mode', () => {
     const ENV_TOKEN = 'env_access_token_abc123';
 
     beforeEach(() => {
-      storage.clearAuth();
+      storage.clearTokens();
     });
 
     it('allows user-info retrieve with no stored auth', async () => {
