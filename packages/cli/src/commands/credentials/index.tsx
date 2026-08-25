@@ -16,11 +16,10 @@ export function createCredentialsCli(
     outputPolicy: 'agent-only' as const,
     async run(c) {
       const { keyFile, keyType, accessToken } = c.options;
-      const token = accessToken ?? process.env.AAP_ACCESS_TOKEN;
 
       const { issueCredential } = await import('./issue');
       return issueCredential({
-        resource: createResource(token),
+        resource: createResource(accessToken),
         keyFile,
         keyType,
       });
