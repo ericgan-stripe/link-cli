@@ -3,6 +3,7 @@ import { type CliAuthStorage, Storage, storage } from './auth/storage';
 import { createAuthCli } from './commands/auth';
 import { createIdentityCli } from './commands/identity';
 import { createBalancesCli } from './commands/balances';
+import { createCredentialsCli } from './commands/credentials';
 import { createDemoCli } from './commands/demo';
 import { createMppCli } from './commands/mpp';
 import { createOnboardCli } from './commands/onboard';
@@ -99,6 +100,11 @@ if (identityCommandsEnabled) {
       createAttestationsResource: (accessToken) =>
         factory.createAttestationsResource(accessToken),
     }),
+  );
+  cli.command(
+    createCredentialsCli((accessToken) =>
+      factory.createCredentialsResource(accessToken),
+    ),
   );
 }
 cli.command(

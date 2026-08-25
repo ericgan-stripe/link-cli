@@ -10,4 +10,5 @@ export {
 export * from './types/index';
 export * from './resources/interfaces';
 export * from './resources/attestations';
+export * from './resources/credentials';
 export { getDuplicateSpendRequest } from './resources/spend-request';
