@@ -1,6 +1,5 @@
 import { LinkApiError, getDuplicateSpendRequest } from '@stripe/link-sdk';
 import type {
-  AuthStorage,
   CredentialType,
   ISpendRequestResource,
   LineItem,
@@ -9,6 +8,7 @@ import type {
 } from '@stripe/link-sdk';
 import { Cli, z } from 'incur';
 import React from 'react';
+import type { CliAuthStorage } from '../../auth/storage';
 import { writeCredentialFile } from '../../utils/credential-output';
 import {
   parseKvString,
@@ -74,7 +74,7 @@ async function applyOutputFile(
 
 export function createSpendRequestCli(
   repository: ISpendRequestResource,
-  authStorage?: AuthStorage,
+  authStorage?: CliAuthStorage,
   envAccessToken?: string,
 ) {
   const cli = Cli.create('spend-request', {

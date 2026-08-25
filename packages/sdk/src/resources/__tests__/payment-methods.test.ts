@@ -89,6 +89,16 @@ describe('PaymentMethodsResource', () => {
     );
   });
 
+  it('does not retry a 401 when configured with a fixed access token', async () => {
+    repo = new PaymentMethodsResource({ accessToken: 'fixed_token' });
+    mockFetchResponse(401, { error: 'expired_token' });
+
+    await expect(repo.list()).rejects.toThrow(
+      'Failed to list payment methods (401): expired_token',
+    );
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
   it('never logs tokens or response bodies in verbose mode', async () => {
     const debug = vi.fn();
     repo = new PaymentMethodsResource({

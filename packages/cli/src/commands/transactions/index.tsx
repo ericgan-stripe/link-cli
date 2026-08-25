@@ -1,10 +1,10 @@
 import type {
-  AuthStorage,
   ITransactionsResource,
   ListTransactionsParams,
 } from '@stripe/link-sdk';
 import { Cli } from 'incur';
 import React from 'react';
+import type { CliAuthStorage } from '../../auth/storage';
 import { renderInteractive } from '../../utils/render-interactive';
 import { requireAuth } from '../../utils/require-auth';
 import { TransactionsList } from './list';
@@ -12,7 +12,7 @@ import { listOptions } from './schema';
 
 export function createTransactionsCli(
   createResource: () => ITransactionsResource,
-  authStorage?: AuthStorage,
+  authStorage?: CliAuthStorage,
   envAccessToken?: string,
 ) {
   const cli = Cli.create('transactions', {

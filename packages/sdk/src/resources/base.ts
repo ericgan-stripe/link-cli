@@ -49,6 +49,7 @@ export function extractErrorMessage(data: unknown, rawBody: string): string {
 export abstract class BaseResource {
   protected readonly verbose: boolean;
   protected readonly getAccessToken: AccessTokenProvider;
+  protected readonly canRefreshAccessToken: boolean;
   protected readonly fetchImpl: typeof globalThis.fetch;
   protected readonly endpoint: string;
   protected readonly logger: { debug(message: string): void };
@@ -61,6 +62,7 @@ export abstract class BaseResource {
     const config = resolveLinkSdkConfig(options);
     this.verbose = config.verbose;
     this.getAccessToken = config.getAccessToken;
+    this.canRefreshAccessToken = config.canRefreshAccessToken;
     this.fetchImpl = requireFetchImplementation(config);
     const baseUrl =
       base === 'spend' ? config.spendRequestBaseUrl : config.apiBaseUrl;
@@ -116,7 +118,7 @@ export abstract class BaseResource {
 
     const res = await this.rawFetch(authedOpts);
 
-    if (res.status === 401) {
+    if (res.status === 401 && this.canRefreshAccessToken) {
       const refreshedToken = await this.getAccessToken({ forceRefresh: true });
       authedOpts.headers.Authorization = `Bearer ${refreshedToken}`;
       return this.rawFetch(authedOpts);

@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LinkApiError,
-  LinkAuthenticationError,
   LinkConfigurationError,
-  LinkResponseError,
   LinkSdkError,
   LinkTransportError,
 } from '../errors';
@@ -19,20 +17,9 @@ describe('SDK error codes', () => {
     expect(err.code).toBe('configuration_error');
   });
 
-  it('LinkAuthenticationError has code not_authenticated', () => {
-    const err = new LinkAuthenticationError('not logged in');
-    expect(err.code).toBe('not_authenticated');
-  });
-
   it('LinkTransportError has code transport_error', () => {
     const err = new LinkTransportError('network fail');
     expect(err.code).toBe('transport_error');
-  });
-
-  it('LinkResponseError has code invalid_response and preserves status', () => {
-    const err = new LinkResponseError('list resources', 200);
-    expect(err.code).toBe('invalid_response');
-    expect(err.status).toBe(200);
   });
 
   it('LinkApiError defaults to api_error', () => {
@@ -50,8 +37,6 @@ describe('SDK error codes', () => {
 
   it('all errors are instances of LinkSdkError', () => {
     expect(new LinkConfigurationError('x')).toBeInstanceOf(LinkSdkError);
-    expect(new LinkResponseError('x', 200)).toBeInstanceOf(LinkSdkError);
-    expect(new LinkAuthenticationError('x')).toBeInstanceOf(LinkSdkError);
     expect(new LinkTransportError('x')).toBeInstanceOf(LinkSdkError);
     expect(new LinkApiError('x', { status: 500 })).toBeInstanceOf(LinkSdkError);
   });

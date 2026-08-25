@@ -1,10 +1,7 @@
-import type {
-  AuthStorage,
-  ISourcesResource,
-  ListSourcesParams,
-} from '@stripe/link-sdk';
+import type { ISourcesResource, ListSourcesParams } from '@stripe/link-sdk';
 import { Cli } from 'incur';
 import React from 'react';
+import type { CliAuthStorage } from '../../auth/storage';
 import { renderInteractive } from '../../utils/render-interactive';
 import { requireAuth } from '../../utils/require-auth';
 import { SourcesList } from './list';
@@ -12,7 +9,7 @@ import { listOptions } from './schema';
 
 export function createSourcesCli(
   createResource: () => ISourcesResource,
-  authStorage?: AuthStorage,
+  authStorage?: CliAuthStorage,
   envAccessToken?: string,
 ) {
   const cli = Cli.create('sources', {

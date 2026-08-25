@@ -1,10 +1,7 @@
 import type {
   ApprovalDetail,
-  AuthTokens,
   BalancesPage,
   CredentialType,
-  DeviceAuthRequest,
-  JsonValue,
   LineItem,
   PaymentMethod,
   RequestApprovalResponse,
@@ -17,31 +14,6 @@ import type {
   UserInfo,
   WebBotAuthBlock,
 } from '@/types/index';
-
-export const SOURCE_ACTIONS = [
-  'read_balances',
-  'read_external_transactions',
-  'read_link_transactions',
-  'read_source_details',
-] as const;
-
-export type SourceAction = (typeof SOURCE_ACTIONS)[number];
-
-export interface InitiateDeviceAuthOptions {
-  clientName?: string;
-  scope?: string;
-  sourceActions?: SourceAction[];
-  authorizationDetails?: JsonValue[];
-}
-
-export interface IAuthResource {
-  initiateDeviceAuth(
-    options?: InitiateDeviceAuthOptions,
-  ): Promise<DeviceAuthRequest>;
-  pollDeviceAuth(deviceCode: string): Promise<AuthTokens | null>;
-  refreshToken(refreshToken: string): Promise<AuthTokens>;
-  revokeToken(token: string): Promise<void>;
-}
 
 export interface GetAccessTokenOptions {
   forceRefresh?: boolean;
