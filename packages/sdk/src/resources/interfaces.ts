@@ -111,8 +111,16 @@ export interface IUserInfoResource {
   retrieve(): Promise<UserInfo>;
 }
 
+export interface WebBotAuthRequest {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body?: string;
+}
+
 export interface IWebBotAuthResource {
   signUrl(url: string): Promise<WebBotAuthBlock>;
+  signRequest(request: WebBotAuthRequest): Promise<WebBotAuthBlock>;
 }
 
 export interface ListTransactionsParams {

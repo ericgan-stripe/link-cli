@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { LinkApiError, LinkSdkError } from '@/errors';
 import { WebBotAuthResource } from '@/resources/web-bot-auth';
 import type { WebBotAuthBlock } from '@/types/index';
@@ -183,6 +184,85 @@ describe('WebBotAuthResource', () => {
       const err = await resource.signUrl('not-a-url').catch((e) => e);
       expect(err).toBeInstanceOf(LinkSdkError);
       expect(err.message).toMatch('Invalid URL');
+    });
+  });
+
+  describe('signRequest', () => {
+    it('requests and validates a request-specific signature', async () => {
+      const requestBlock: WebBotAuthBlock = {
+        ...webBotAuthBlock,
+        signature_input:
+          'agent=("@method" "@authority" "@path" "signature-agent" "identity-presentation" "content-digest");created=1715400100;expires=1715400160;keyid="stub_keyid";tag="web-bot-auth"',
+      };
+      mockFetchResponse(200, { web_bot_auth: requestBlock });
+      const requestBody = '{"purchase":true}';
+      const requestDigest = `sha-256=:${createHash('sha256')
+        .update(requestBody)
+        .digest('base64')}:`;
+
+      const result = await resource.signRequest({
+        url: validUrl,
+        method: 'POST',
+        headers: {
+          'Identity-Presentation': 'issuer-jwt~disclosure~kb-jwt',
+          'Content-Digest': requestDigest,
+        },
+        body: requestBody,
+      });
+
+      expect(result).toEqual(requestBlock);
+      const call = mockFetch.mock.calls[0];
+      expect(call).toBeDefined();
+      if (!call) {
+        throw new Error('Expected Web Bot Auth request');
+      }
+      const [, opts] = call;
+      expect(JSON.parse(opts.body)).toEqual({
+        url: validUrl,
+        method: 'POST',
+        headers: {
+          'identity-presentation': 'issuer-jwt~disclosure~kb-jwt',
+          'content-digest': requestDigest,
+        },
+        body: requestBody,
+      });
+    });
+
+    it('fails closed when a required component is unsigned', async () => {
+      mockFetchResponse(200, credentialsResponse);
+
+      await expect(
+        resource.signRequest({
+          url: validUrl,
+          method: 'GET',
+          headers: {
+            'Identity-Presentation': 'issuer-jwt~disclosure~kb-jwt',
+          },
+        }),
+      ).rejects.toThrow(
+        'Web Bot Auth signature does not cover required components',
+      );
+    });
+
+    it('never caches request-specific signatures', async () => {
+      const requestBlock: WebBotAuthBlock = {
+        ...webBotAuthBlock,
+        signature_input:
+          'agent=("@method" "@authority" "@path" "signature-agent" "identity-presentation");created=1715400100;expires=1715400160;keyid="stub_keyid";tag="web-bot-auth"',
+      };
+      mockFetchResponse(200, { web_bot_auth: requestBlock });
+      const request = {
+        url: validUrl,
+        method: 'GET',
+        headers: {
+          'Identity-Presentation': 'issuer-jwt~disclosure~kb-jwt',
+        },
+      };
+
+      await resource.signRequest(request);
+      await resource.signRequest(request);
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 });

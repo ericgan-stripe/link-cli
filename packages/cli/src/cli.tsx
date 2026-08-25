@@ -8,6 +8,7 @@ import { createMppCli } from './commands/mpp';
 import { createOnboardCli } from './commands/onboard';
 import { createPaymentMethodsCli } from './commands/payment-methods';
 import { createReportCli } from './commands/report';
+import { createRequestCli } from './commands/request';
 import { createServeCli } from './commands/serve';
 import { createShippingAddressCli } from './commands/shipping-address';
 import { createSourcesCli } from './commands/sources';
@@ -103,6 +104,14 @@ if (identityCommandsEnabled) {
     }),
   );
 }
+cli.command(
+  createRequestCli(
+    () => factory.createCredentialsResource(),
+    () => factory.createWebBotAuthResource(),
+    authStorage,
+    envAccessToken,
+  ),
+);
 cli.command(
   createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
 );

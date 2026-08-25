@@ -52,7 +52,7 @@ Commands in `packages/cli/src/cli.tsx` (incur framework). Each has two output mo
 - **Interactive** (default): Ink/React components from `packages/cli/src/commands/`
 - **JSON** (`--format json`): JSON to stdout, errors as JSON with `code` and `message` fields with exit code 1
 
-Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `identity attestations request`, `identity credentials get`, `serve`.
+Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `identity attestations request`, `identity credentials get`, `identity request`, `serve`.
 
 The CLI also runs as an MCP server (`--mcp`) and serves skill files via `skills` subcommand, both provided by incur.
 
@@ -133,6 +133,16 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 - The private key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs.
 - Requires `userinfo:read` and `payment_methods.agentic`; no additional OAuth scope is required.
 
+### request command (AAP)
+
+`request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — satisfies a pre-provisioned identity-claims challenge and retries with a holder-bound presentation. HTTPS is required except for loopback development.
+
+- Recognizes a challenge only when status is 401, `WWW-Authenticate` includes `Identity-Presentation`, content type is `application/problem+json`, and the body type is `urn:aap:claims-required`.
+- Requires the challenge `aud` to exactly equal the request origin, supports `dc+sd-jwt`, and honors `trusted_issuers`.
+- Supports string and nested claims path pointers. `sd_hash` uses the credential's `_sd_alg` (default `sha-256`).
+- The retry uses a request-specific Web Bot Auth HTTP Message Signature covering method, authority, path, `Signature-Agent`, `Identity-Presentation`, any `Authorization`, and `Content-Digest` when a body is present.
+- Redirects are not followed, preventing identity presentations or authorization credentials from crossing origins.
+
 ### serve command
 
 - `serve [--port <n>] [--host <host>]` — HTTP server that exposes the CLI's MCP endpoint. Implemented in `packages/cli/src/commands/serve/index.ts`. The handler forwards to `rootCli.fetch()` (incur), but is a **privilege boundary**: `requireAuth` only proves the CLI *owner* is authenticated, not that the HTTP caller is authorized.
@@ -160,7 +170,7 @@ Server-returned strings can contain ANSI escape sequences or control characters 
 - **SDK-resource data** — sanitized automatically at the `sanitizeResource()` proxy boundary in `packages/cli/src/utils/resource-factory.ts`. All server data flowing through SDK resources (spend-request, payment-methods, sources, etc.) is `sanitizeDeep()`'d before reaching components or the incur formatter, in every output format.
 - **Commands using `useAsyncAction` hook** — sanitized automatically. The hook calls `sanitizeDeep()` on all returned data before it reaches components.
 - **Commands with manual state management** (e.g. `create.tsx`, `retrieve.tsx`, `request-approval.tsx`, `mpp/pay.tsx`) — must call `sanitizeDeep()` on API responses before calling `setRequest()`/`setState()`.
-- **Attacker-controlled data that does NOT flow through an SDK resource** — must be sanitized at its own parse boundary. `mpp pay` sanitizes the HTTP response in `readPayResult()` (`pay.tsx`); `mpp decode` sanitizes the parsed `WWW-Authenticate` challenge in `decodeStripeChallenge()` (`decode.ts`). These bypass the resource factory, so the return value of the parse/fetch helper is the chokepoint — sanitizing there covers both the interactive Ink render and the agent (toon/yaml/md) output at once.
+- **Attacker-controlled data that does NOT flow through an SDK resource** — must be sanitized at its own parse boundary. `mpp pay` sanitizes the HTTP response in `readPayResult()` (`pay.tsx`); `mpp decode` sanitizes the parsed `WWW-Authenticate` challenge in `decodeStripeChallenge()` (`decode.ts`); `request` sanitizes claims challenges in `parseClaimsChallenge()` and merchant response bodies in `parseBody()`. These bypass the resource factory, so the return value of the parse/fetch helper is the chokepoint — sanitizing there covers both the interactive Ink render and the agent (toon/yaml/md) output at once.
 
 JSON output mode (`--format json`) is **not** affected — `JSON.stringify` encodes escape sequences as Unicode literals.
 ## Environment Variables
