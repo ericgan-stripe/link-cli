@@ -851,11 +851,10 @@ describe('production mode', () => {
   });
 
   describe('spend-request request-approval', () => {
-    it('sends POST to /spend-requests/:id/request_approval, outputs approval_link immediately then polls', async () => {
+    it('sends POST to /spend-requests/:id/request_approval, outputs approval_url immediately then polls', async () => {
       setNextResponse(200, {
-        ...BASE_REQUEST,
-        status: 'approved',
-        approval_url: 'https://app.link.com/approve/lsrq_prod_001',
+        id: BASE_REQUEST.id,
+        approval_link: 'https://app.link.com/approve/lsrq_prod_001',
       });
 
       const result = await runProdCli(
