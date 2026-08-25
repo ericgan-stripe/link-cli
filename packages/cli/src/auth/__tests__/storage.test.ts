@@ -1,8 +1,15 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import Conf from 'conf';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Storage } from '../storage';
+import { type PendingDeviceAuth, Storage } from '../storage';
+import type { AuthTokens } from '../types';
+
+interface LegacyStorageSchema {
+  auth: AuthTokens | null;
+  pendingDeviceAuth: PendingDeviceAuth | null;
+}
 
 const describePosix = process.platform === 'win32' ? describe.skip : describe;
 
@@ -15,6 +22,38 @@ describePosix('CLI auth storage', () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reads credentials written by the pre-branch-4 storage', () => {
+    const tokens: AuthTokens = {
+      access_token: 'at_existing',
+      refresh_token: 'rt_existing',
+      expires_in: 3600,
+      expires_at: Date.now() + 3_600_000,
+      token_type: 'Bearer',
+      scope: 'userinfo:read payment_methods.agentic',
+    };
+    const pendingDeviceAuth: PendingDeviceAuth = {
+      device_code: 'dc_existing',
+      interval: 5,
+      expires_at: Date.now() + 60_000,
+      verification_url: 'https://login.link.com/device',
+      phrase: 'existing-phrase',
+    };
+    const legacyStorage = new Conf<LegacyStorageSchema>({
+      projectName: 'link-cli',
+      cwd: tmpDir,
+      configFileMode: 0o600,
+      defaults: { auth: null, pendingDeviceAuth: null },
+    });
+    legacyStorage.set('auth', tokens);
+    legacyStorage.set('pendingDeviceAuth', pendingDeviceAuth);
+
+    const storage = new Storage({ cwd: tmpDir });
+
+    expect(storage.getPath()).toBe(legacyStorage.path);
+    expect(storage.getTokens()).toEqual(tokens);
+    expect(storage.getPendingDeviceAuth()).toEqual(pendingDeviceAuth);
   });
 
   it('implements the SDK token-storage contract', () => {
