@@ -27,15 +27,13 @@ export class CredentialsResource
   extends BaseResource
   implements ICredentialsResource
 {
-  private readonly issuerUrl: URL;
-
   constructor(options: LinkOptions) {
     super(options, '');
-    this.issuerUrl = parseIssuerOrigin(this.endpoint);
   }
 
   private async discoverCredentialEndpoint(): Promise<string> {
-    const metadataUrl = new URL('/.well-known/aap-issuer', this.issuerUrl).href;
+    const issuerUrl = parseIssuerOrigin(this.endpoint);
+    const metadataUrl = new URL('/.well-known/aap-issuer', issuerUrl).href;
     let response: Response;
     try {
       response = await this.fetchImpl(metadataUrl, { redirect: 'manual' });
@@ -82,14 +80,14 @@ export class CredentialsResource
       response.status,
       () => {
         const metadataIssuerUrl = parseIssuerOrigin(metadata.issuer);
-        if (metadataIssuerUrl.origin !== this.issuerUrl.origin) {
+        if (metadataIssuerUrl.origin !== issuerUrl.origin) {
           throw new TypeError(
             'issuer metadata identifier must match the discovery origin',
           );
         }
         return requireIssuerEndpoint(
           metadata.credential_endpoint,
-          this.issuerUrl.origin,
+          issuerUrl.origin,
           'credential_endpoint',
         );
       },
