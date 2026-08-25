@@ -1,6 +1,7 @@
 export const DEFAULT_SCOPES = [
   'userinfo:read',
   'payment_methods.agentic',
+  'aap:represent',
 ] as const;
 
 export const DEFAULT_SCOPE = DEFAULT_SCOPES.join(' ');

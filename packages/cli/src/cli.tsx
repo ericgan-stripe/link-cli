@@ -1,5 +1,6 @@
 import { Cli } from 'incur';
 import { type CliAuthStorage, Storage, storage } from './auth/storage';
+import { createAttestationsCli } from './commands/attestations';
 import { createAuthCli } from './commands/auth';
 import { createBalancesCli } from './commands/balances';
 import { createDemoCli } from './commands/demo';
@@ -88,6 +89,7 @@ if (!isAgent && process.stdout.isTTY) {
   }
 }
 
+cli.command(createAttestationsCli(() => factory.createAttestationsResource()));
 cli.command(
   createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
 );

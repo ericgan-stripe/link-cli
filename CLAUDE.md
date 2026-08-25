@@ -38,6 +38,7 @@ node packages/cli/dist/cli.js <command>
 ### SDK Resources
 
 Defined in `packages/sdk/src/resources/interfaces.ts`:
+- `IAttestationsResource` — Privacy Pass Blind RSA token issuance
 - `ISpendRequestResource` — CRUD + request-approval for spend requests
 
 The SDK only accepts credentials. Device authorization, refresh-token
@@ -50,7 +51,7 @@ Commands in `packages/cli/src/cli.tsx` (incur framework). Each has two output mo
 - **Interactive** (default): Ink/React components from `packages/cli/src/commands/`
 - **JSON** (`--format json`): JSON to stdout, errors as JSON with `code` and `message` fields with exit code 1
 
-Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `serve`.
+Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `attestations request`, `serve`.
 
 The CLI also runs as an MCP server (`--mcp`) and serves skill files via `skills` subcommand, both provided by incur.
 
@@ -107,6 +108,16 @@ Key input field notes:
 ### onboard command
 
 - `onboard` — Guided setup: authenticates (skips if already logged in), checks payment methods (prompts to add one if missing, shows picker if multiple), shows app download QR code, then runs the full demo. Requires a TTY.
+
+### attestations command (AAP)
+
+`attestations request --count <n> [--issuer <url>] [--access-token <t>]` — mints Agent Attestation Tokens via the Privacy Pass Blind RSA protocol (token type `0x0002`, RFC 9578 / RFC 9577). Agent-only output. The SDK owns the protocol and API implementation in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`.
+
+- Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
+- Tokens use the AAP stable challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
+- Blind signatures are verified after unblinding before final tokens are returned.
+- Server-side max batch is 100. Issuance requires the `aap:represent` scope.
+- Auth: `--access-token`, else `AAP_ACCESS_TOKEN`, else stored CLI credentials.
 
 ### serve command
 

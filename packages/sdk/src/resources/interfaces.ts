@@ -23,6 +23,22 @@ export type AccessTokenProvider = (
   options?: GetAccessTokenOptions,
 ) => Promise<string> | string;
 
+export interface AttestationRequestParams {
+  issuer: string;
+  count: number;
+}
+
+export interface AttestationRequestResult {
+  tokens: string[];
+  issuer: string;
+  token_key_id: string;
+  count: number;
+}
+
+export interface IAttestationsResource {
+  request(params: AttestationRequestParams): Promise<AttestationRequestResult>;
+}
+
 export interface CreateSpendRequestParams {
   payment_details?: string;
   credential_type?: CredentialType;

@@ -1,5 +1,6 @@
 import {
   type AccessTokenProvider,
+  type IAttestationsResource,
   type IBalancesResource,
   type IPaymentMethodsResource,
   type IReportResource,
@@ -70,6 +71,10 @@ interface ResourceFactoryOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+type SdkAuthentication =
+  | { accessToken: string; getAccessToken?: never }
+  | { accessToken?: never; getAccessToken: AccessTokenProvider };
+
 function createProxyFetch(
   baseFetch: typeof globalThis.fetch,
   proxyUrl: string,
@@ -108,6 +113,7 @@ export class ResourceFactory {
   private _authResource?: IAuthResource;
   private accessTokenProvider?: ReturnType<typeof createAccessTokenProvider>;
   private sdkClient?: Link;
+  private attestationsResource?: IAttestationsResource;
   private spendRequestResource?: ISpendRequestResource;
   private paymentMethodsResource?: IPaymentMethodsResource;
   private shippingAddressResource?: IShippingAddressResource;
@@ -134,11 +140,11 @@ export class ResourceFactory {
     this._authResource = options.authResource;
   }
 
-  private createSdkOptions(getAccessToken: AccessTokenProvider): LinkOptions {
+  private createSdkOptions(authentication: SdkAuthentication): LinkOptions {
     return {
       verbose: this.verbose,
       defaultHeaders: this.defaultHeaders,
-      getAccessToken,
+      ...authentication,
       apiBaseUrl: this.apiBaseUrl,
       spendRequestBaseUrl: this.spendRequestBaseUrl,
       fetch: this.fetch,
@@ -214,10 +220,28 @@ export class ResourceFactory {
   private createSdkClient(): Link {
     if (!this.sdkClient) {
       this.sdkClient = new Link(
-        this.createSdkOptions(this.createSdkAccessTokenProvider()),
+        this.createSdkOptions({
+          getAccessToken: this.createSdkAccessTokenProvider(),
+        }),
       );
     }
     return this.sdkClient;
+  }
+
+  createAttestationsResource(accessToken?: string): IAttestationsResource {
+    if (accessToken !== undefined) {
+      return sanitizeResource(
+        new Link(this.createSdkOptions({ accessToken })).attestations,
+      );
+    }
+    if (this.attestationsResource) {
+      return this.attestationsResource;
+    }
+
+    this.attestationsResource = sanitizeResource(
+      this.createSdkClient().attestations,
+    );
+    return this.attestationsResource;
   }
 
   createSpendRequestResource(): ISpendRequestResource {
