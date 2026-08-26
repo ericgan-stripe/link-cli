@@ -19,6 +19,6 @@ export const issueOptions = z.object({
     .string()
     .optional()
     .describe(
-      'Bearer token for the issuer (needs the aap:represent, userinfo:read and payment_methods.agentic scopes). Defaults to the stored credentials from "link-cli auth login".',
+      'Bearer token for the issuer (needs the userinfo:read and payment_methods.agentic scopes). Defaults to the stored credentials from "link-cli auth login".',
     ),
 });

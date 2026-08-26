@@ -129,7 +129,7 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 - Discovery uses `GET <issuer>/.well-known/aap-issuer`, where `<issuer>` is `LINK_API_BASE_URL` or `https://api.link.com`. The metadata `issuer` and `credential_endpoint` must remain on that HTTPS DNS origin.
 - `POST <credential_endpoint>` sends `{"cnf":{"jwk":<public JWK>}}`. Only the public Ed25519 or P-256 members are sent.
 - The private holder key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs.
-- Requires `aap:represent`, `userinfo:read`, and `payment_methods.agentic`.
+- Requires `userinfo:read` and `payment_methods.agentic`; no AAP-specific OAuth scope is required.
 
 ### serve command
 

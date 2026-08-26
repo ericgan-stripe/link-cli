@@ -295,7 +295,7 @@ link-cli credentials issue
 link-cli credentials issue --key-file ~/.link/holder-key.jwk --key-type ed25519
 ```
 
-`credentials issue` provisions a short-lived SD-JWT-VC bound to a locally persisted holder key. The SDK discovers the issuer's `credential_endpoint` through `/.well-known/aap-issuer`; it never assumes a fixed credential path.
+`credentials issue` provisions a short-lived SD-JWT-VC bound to a locally persisted holder key without requiring an AAP-specific OAuth scope. The SDK discovers the issuer's `credential_endpoint` through `/.well-known/aap-issuer`; it never assumes a fixed credential path.
 
 ### Spend request lifecycle
 
