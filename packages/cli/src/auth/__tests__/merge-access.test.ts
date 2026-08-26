@@ -47,9 +47,7 @@ describe('computeMergedAccess', () => {
       existingAuthorizationDetails: [],
     });
 
-    expect(merged.mergedScope).toBe(
-      'userinfo:read payment_methods.agentic aap:represent',
-    );
+    expect(merged.mergedScope).toBe('userinfo:read payment_methods.agentic');
   });
 
   it('unions source actions across requested and existing (keeps already-granted actions)', () => {

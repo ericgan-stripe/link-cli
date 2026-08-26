@@ -116,7 +116,7 @@ Key input field notes:
 - Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
 - Tokens use the AAP stable challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
 - Blind signatures are verified after unblinding before final tokens are returned.
-- Server-side max batch is 100. Issuance requires the `aap:represent` scope.
+- Server-side max batch is 100. Issuance does not require an AAP-specific OAuth scope.
 - Auth: `--access-token`, else `AAP_ACCESS_TOKEN`, else stored CLI credentials.
 
 ### serve command

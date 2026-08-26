@@ -72,9 +72,7 @@ describe('LinkAuthResource', () => {
 
       const body = mockFetch.mock.calls[0][1].body as string;
       const params = new URLSearchParams(body);
-      expect(params.get('scope')).toBe(
-        'userinfo:read payment_methods.agentic aap:represent',
-      );
+      expect(params.get('scope')).toBe('userinfo:read payment_methods.agentic');
     });
 
     it('passes a custom scope when provided', async () => {

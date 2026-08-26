@@ -259,7 +259,7 @@ With `--interval`, the login command yields the verification code immediately an
 ```json
 {
   "authenticated": true,
-  "scope": "userinfo:read payment_methods.agentic aap:represent",
+  "scope": "userinfo:read payment_methods.agentic",
   "authorization_details": [{ "type": "source", "actions": ["read"] }],
   "update": {
     "current_version": "0.1.2",
@@ -282,7 +282,7 @@ link-cli attestations request --count 10
 link-cli attestations request --count 10 --issuer https://api.link.com
 ```
 
-`attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
+`attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`; no AAP-specific OAuth scope is required. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
 
 ### Spend request lifecycle
 
