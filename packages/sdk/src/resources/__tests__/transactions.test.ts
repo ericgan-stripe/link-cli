@@ -169,4 +169,89 @@ describe('TransactionsResource', () => {
       status: 200,
     });
   });
+
+  describe('update', () => {
+    const bareTransaction = {
+      id: 'lbctxn_123',
+      source_id: null,
+      amount: -979,
+      currency: 'usd',
+      created_date: '2026-06-08',
+      description: 'Trader Joes',
+      origin: 'external_connection',
+      category: 'groceries',
+      status: 'succeeded',
+    };
+
+    it('POSTs to the transaction endpoint with the update body', async () => {
+      mockFetchResponse(200, bareTransaction);
+
+      await repo.update('lbctxn_123', {
+        category: 'groceries',
+        description: 'Trader Joes',
+      });
+
+      expect(mockFetch).toHaveBeenCalledOnce();
+      const [url, opts] = mockFetch.mock.calls[0]!;
+      expect(url).toBe('https://api.link.com/transactions/lbctxn_123');
+      expect(opts.method).toBe('POST');
+      expect(opts.headers['Content-Type']).toBe('application/json');
+      expect(opts.headers.Authorization).toBe('Bearer test_token');
+      expect(JSON.parse(opts.body)).toEqual({
+        category: 'groceries',
+        description: 'Trader Joes',
+      });
+    });
+
+    it('omits unset fields from the request body', async () => {
+      mockFetchResponse(200, bareTransaction);
+
+      await repo.update('lbctxn_123', { category: 'groceries' });
+
+      const [, opts] = mockFetch.mock.calls[0]!;
+      const body = JSON.parse(opts.body);
+      expect(body).toEqual({ category: 'groceries' });
+      expect('description' in body).toBe(false);
+    });
+
+    it('parses a bare (non-enveloped) transaction response', async () => {
+      mockFetchResponse(200, bareTransaction);
+
+      const result = await repo.update('lbctxn_123', {
+        description: 'Trader Joes',
+      });
+
+      expect(result).toEqual(bareTransaction);
+    });
+
+    it('parses null category and null status', async () => {
+      mockFetchResponse(200, {
+        ...bareTransaction,
+        category: null,
+        status: null,
+      });
+
+      const result = await repo.update('lbctxn_123', {
+        description: 'Trader Joes',
+      });
+
+      expect(result.category).toBeNull();
+      expect(result.status).toBeNull();
+    });
+
+    it('throws API errors with the response message', async () => {
+      mockFetchResponse(400, {
+        error: {
+          code: 'invalid_category',
+          message: 'Invalid category: shopping',
+        },
+      });
+
+      await expect(
+        repo.update('lbctxn_123', { category: 'shopping' }),
+      ).rejects.toThrow(
+        'Failed to update transaction (400): Invalid category: shopping',
+      );
+    });
+  });
 });

@@ -83,7 +83,7 @@ export const TransactionsList: React.FC<TransactionsListProps> = ({
     [
       formatCell(txn.created_date, DATE_WIDTH),
       formatCell(formatAmount(txn.amount, txn.currency), AMOUNT_WIDTH, 'right'),
-      formatCell(txn.status, STATUS_WIDTH),
+      formatCell(txn.status ?? '', STATUS_WIDTH),
       formatCell(txn.category ?? '', CATEGORY_WIDTH),
       formatCell(txn.description, descriptionWidth),
     ].join(COLUMN_GAP),
