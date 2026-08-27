@@ -21,6 +21,8 @@ export type PayResult = {
   body: string;
 };
 
+declare const __CLI_VERSION__: string;
+
 export function buildHeaders(
   data: string | undefined,
   headers: string[] | undefined,
@@ -35,6 +37,9 @@ export function buildHeaders(
     const key = line.slice(0, idx).trim();
     const value = line.slice(idx + 1).trim();
     if (key) result[key] = value;
+  }
+  if (!Object.keys(result).some((key) => key.toLowerCase() === 'user-agent')) {
+    result['User-Agent'] = `link-cli/${__CLI_VERSION__}`;
   }
   return result;
 }
