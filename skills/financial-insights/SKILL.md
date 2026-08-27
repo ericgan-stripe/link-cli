@@ -45,7 +45,7 @@ Only retrieve the data needed to answer the user’s request. Do not run every l
 
 Do not expose sensitive identifiers, access tokens, credentials, or payment instrument details. Summarize financial information at the level needed to answer the user’s question.
 
-If the user asks for an action that would move money — a payment, purchase, or transfer — reference `skills/create-payment-credential/SKILL.md` instead. Recategorizing or annotating an existing transaction does not move money and stays in this skill.
+If the user asks for an action that would move money — a payment, purchase, or transfer — reference `skills/create-payment-credential/SKILL.md` instead.
 
 ## Authentication
 
@@ -68,7 +68,7 @@ Use the minimum required source actions:
 - Updating transactions processed through Link: `write_link_transactions`
 - Updating transactions imported from bank connections: `write_external_transactions`
 
-A write action implies the matching read action, so a session granted `write_link_transactions` can also read Link transactions. Do not request both the read and the write action for the same resource — request the write action only when the user wants to update a transaction.
+A write action implies the matching read action, so a session granted `write_link_transactions` can also read Link transactions.
 
 If the user asks a question that requires multiple data types, request all relevant actions together.
 
