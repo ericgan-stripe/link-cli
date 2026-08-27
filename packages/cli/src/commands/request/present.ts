@@ -6,7 +6,7 @@ import type { HolderKeyType } from '../credentials/holder-key';
 export type ClaimPathComponent = string | number | null;
 export type ClaimReference = string | ClaimPathComponent[];
 
-/** The claims-required challenge a verifier returns (AAP Phase 5 "Disclosure"). */
+/** The claims-required challenge a verifier returns for identity disclosure. */
 export interface ClaimsChallenge {
   aud: string;
   nonce: string;
@@ -61,7 +61,7 @@ function parseClaimReference(value: unknown): ClaimReference | null {
 
 /**
  * Recognizes a claims-required challenge only when all protocol signals agree.
- * Unrelated 401 responses pass through; malformed AAP challenges fail closed.
+ * Unrelated 401 responses pass through; malformed identity challenges fail closed.
  */
 export function parseClaimsChallenge(
   response: Pick<Response, 'status' | 'headers'>,

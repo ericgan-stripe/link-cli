@@ -26,7 +26,7 @@ describe('identity presentation', () => {
     }
   });
 
-  it('requires the complete AAP challenge envelope', () => {
+  it('requires the complete claims-required challenge envelope', () => {
     const response = {
       status: 401,
       headers: new Headers({

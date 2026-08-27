@@ -24,7 +24,7 @@ export function createRequestCli(
 ) {
   return Cli.create('request', {
     description:
-      'Make an HTTPS request that satisfies an AAP identity-claims challenge with selective disclosure and a request-specific Web Bot Auth signature.',
+      'Make an HTTPS request that satisfies an identity-claims challenge with selective disclosure and a request-specific Web Bot Auth signature.',
     args: requestArgs,
     options: requestOptions,
     alias: { method: 'X', data: 'd', header: 'H' },

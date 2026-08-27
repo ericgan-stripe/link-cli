@@ -304,7 +304,7 @@ link-cli request https://merchant.example/checkout
 link-cli request https://merchant.example/checkout --claims email,given_name
 ```
 
-When the HTTPS origin returns an AAP `Identity-Presentation` challenge, `request` provisions a holder-bound credential, selects only the requested claims, validates the audience/format/trusted issuer, and retries with both the presentation and a request-specific Web Bot Auth signature. Redirects are not followed.
+When the HTTPS origin returns an `Identity-Presentation` challenge, `request` provisions a holder-bound credential, selects only the requested claims, validates the audience/format/trusted issuer, and retries with both the presentation and a request-specific Web Bot Auth signature. Redirects are not followed.
 
 ### Spend request lifecycle
 
