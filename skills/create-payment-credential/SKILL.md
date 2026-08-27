@@ -71,7 +71,6 @@ Call `tools/list` to see all available MCP tools.
 - By default all output is in `toon` format. Pass `--format [json|md|yaml]` to change output format.
 - Some commands return a verification or approval URL. **These** must be presented to the user clearly for their action.
 - `--auth <path>` flag to store auth credentials in a specific file instead of the default location. `auth login` writes to this file; all other commands read from it. Example: `link-cli auth login --auth credentials.json`
-- Agent Attestation Tokens are separate from the payment flow. When explicitly needed, request a pool with `link-cli attestations request --count <1-100> [--issuer <https-origin>]`; no AAP-specific OAuth scope is required.
 
 _Recommended_: Run `link-cli --llms` to understand all the available commands. The `--llms-full` output is the canonical reference for parameter names, types, and valid values. Pass `--schema` before invoking a command to understand its parameters and constraints.
 
