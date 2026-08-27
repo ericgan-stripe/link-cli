@@ -290,9 +290,11 @@ LINK_IDENTITY_COMMANDS=1 link-cli identity attestations request --count 10 --iss
 
 ### Identity credential wallet
 
+Unlisted command: set `LINK_IDENTITY_COMMANDS=1` to enable it. It is omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+
 ```bash
-link-cli credentials issue
-link-cli credentials issue --key-file ~/.link/holder-key.jwk --key-type ed25519
+LINK_IDENTITY_COMMANDS=1 link-cli credentials issue
+LINK_IDENTITY_COMMANDS=1 link-cli credentials issue --key-file ~/.link/holder-key.jwk --key-type ed25519
 ```
 
 `credentials issue` provisions a short-lived SD-JWT-VC bound to a locally persisted holder key. The SDK discovers the issuer's `credential_endpoint` from issuer metadata; it never assumes a fixed credential path.

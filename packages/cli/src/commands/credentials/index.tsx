@@ -13,6 +13,7 @@ export function createCredentialsCli(
     description:
       "Issue a short-lived SD-JWT-VC holding the user's identity claims (email, phone_number, given_name, family_name), bound to a local holder key. Present selective disclosures from it to merchants.",
     options: issueOptions,
+    mcp: false,
     outputPolicy: 'agent-only' as const,
     async run(c) {
       const { keyFile, keyType, accessToken } = c.options;

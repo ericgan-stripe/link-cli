@@ -124,6 +124,8 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 
 ### credentials command
 
+Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
+
 `credentials issue [--key-file <path>] [--key-type ed25519|p256] [--access-token <t>]` — provisions a short-lived holder-bound SD-JWT-VC with the user's identity claims. Agent-only output. The SDK discovers and calls `credential_endpoint`; the CLI owns holder-key persistence, disclosure decoding, schema, and command registration.
 
 - Discovery uses `GET <issuer>/.well-known/aap-issuer`, where `<issuer>` is `LINK_API_BASE_URL` or `https://api.link.com`. The metadata `issuer` and `credential_endpoint` must remain on that HTTPS DNS origin.
