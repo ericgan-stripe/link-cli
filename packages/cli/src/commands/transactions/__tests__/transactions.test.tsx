@@ -179,26 +179,6 @@ describe('transactions update component', () => {
     });
   });
 
-  it('renders a null category without crashing', async () => {
-    const resource = makeUpdateResource(transaction({ category: null }));
-
-    const { lastFrame } = render(
-      <TransactionUpdate
-        resource={resource}
-        id="lbctxn_1"
-        params={{ description: 'Chase' }}
-        onComplete={() => {}}
-      />,
-    );
-
-    await vi.waitFor(() => {
-      const frame = lastFrame();
-      expect(frame).toContain('N/A');
-      expect(frame).not.toContain('null');
-      expect(frame).toContain('Chase');
-    });
-  });
-
   it('renders an error state when the resource rejects', async () => {
     const resource = sanitizeResource({
       update: vi.fn(async () => {

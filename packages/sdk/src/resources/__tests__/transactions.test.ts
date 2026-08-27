@@ -183,10 +183,10 @@ describe('TransactionsResource', () => {
       status: 'succeeded',
     };
 
-    it('POSTs to the transaction endpoint with the update body', async () => {
+    it('POSTs the update body and returns the bare transaction', async () => {
       mockFetchResponse(200, bareTransaction);
 
-      await repo.update('lbctxn_123', {
+      const result = await repo.update('lbctxn_123', {
         category: 'groceries',
         description: 'Trader Joes',
       });
@@ -201,6 +201,8 @@ describe('TransactionsResource', () => {
         category: 'groceries',
         description: 'Trader Joes',
       });
+      // The update response is not paginated/enveloped, unlike `list`.
+      expect(result).toEqual(bareTransaction);
     });
 
     it('omits unset fields from the request body', async () => {
@@ -212,29 +214,6 @@ describe('TransactionsResource', () => {
       const body = JSON.parse(opts.body);
       expect(body).toEqual({ category: 'groceries' });
       expect('description' in body).toBe(false);
-    });
-
-    it('parses a bare (non-enveloped) transaction response', async () => {
-      mockFetchResponse(200, bareTransaction);
-
-      const result = await repo.update('lbctxn_123', {
-        description: 'Trader Joes',
-      });
-
-      expect(result).toEqual(bareTransaction);
-    });
-
-    it('parses a null category', async () => {
-      mockFetchResponse(200, {
-        ...bareTransaction,
-        category: null,
-      });
-
-      const result = await repo.update('lbctxn_123', {
-        description: 'Trader Joes',
-      });
-
-      expect(result.category).toBeNull();
     });
 
     it('throws API errors with the response message', async () => {

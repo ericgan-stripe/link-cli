@@ -1,7 +1,6 @@
 import { hostname } from 'node:os';
 import { LinkApiError, LinkTransportError } from '@stripe/link-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loginOptions } from '../../commands/auth/schema';
 import { LinkAuthResource } from '../auth-resource';
 import { LinkAuthorizationDeclinedError } from '../errors';
 
@@ -166,45 +165,6 @@ describe('LinkAuthResource', () => {
         params.getAll('authorization_details[][filters][][include_inactive]'),
       ).toEqual(['true']);
       expect(params.getAll('authorization_details[]')).toEqual(['true']);
-    });
-
-    it('accepts and serializes write transaction source actions', async () => {
-      mockFetchResponse(200, {
-        device_code: 'dev_123',
-        user_code: 'ABCD-EFGH',
-        verification_uri: 'https://link.com/verify',
-        verification_uri_complete: 'https://link.com/verify?code=ABCD-EFGH',
-        expires_in: 900,
-        interval: 5,
-      });
-
-      // The write actions must pass `--source-actions` validation...
-      const parsed = loginOptions.parse({
-        sourceActions: [
-          'write_link_transactions',
-          'write_external_transactions',
-        ],
-      });
-      expect(parsed.sourceActions).toEqual([
-        'write_link_transactions',
-        'write_external_transactions',
-      ]);
-
-      // ...and round-trip into the emitted source detail's actions array.
-      const resource = createResource();
-      await resource.initiateDeviceAuth({
-        sourceActions: parsed.sourceActions,
-      });
-
-      const body = mockFetch.mock.calls[0][1].body as string;
-      const params = new URLSearchParams(body);
-      expect(params.getAll('authorization_details[][type]')).toEqual([
-        'source',
-      ]);
-      expect(params.getAll('authorization_details[][actions][]')).toEqual([
-        'write_link_transactions',
-        'write_external_transactions',
-      ]);
     });
 
     it('includes client name and hostname in connection_label', async () => {

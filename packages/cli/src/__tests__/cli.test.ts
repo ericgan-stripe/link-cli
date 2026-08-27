@@ -1471,7 +1471,7 @@ describe('production mode', () => {
       expect(output.data).toBeUndefined();
     });
 
-    it('sends only category when only --category is provided', async () => {
+    it('drops a blank --description instead of clearing it server-side', async () => {
       setResponseForUrl('/transactions/lbctxn_001', 200, {
         ...SAMPLE_TRANSACTION,
         category: 'groceries',
@@ -1483,13 +1483,14 @@ describe('production mode', () => {
         'lbctxn_001',
         '--category',
         'groceries',
+        '--description',
+        '   ',
         '--json',
       );
 
       expect(result.exitCode).toBe(0);
       const sentBody = JSON.parse(lastRequest.body);
       expect(sentBody).toEqual({ category: 'groceries' });
-      expect('description' in sentBody).toBe(false);
     });
 
     it('fails locally without making a request when both flags are missing', async () => {

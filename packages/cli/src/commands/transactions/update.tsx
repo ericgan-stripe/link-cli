@@ -63,7 +63,7 @@ export const TransactionUpdate: React.FC<TransactionUpdateProps> = ({
           Description: <Text bold>{transaction?.description}</Text>
         </Text>
         <Text>
-          Category: <Text bold>{transaction?.category ?? 'N/A'}</Text>
+          Category: <Text bold>{transaction?.category}</Text>
         </Text>
         <Text>
           Amount:{' '}
