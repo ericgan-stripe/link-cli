@@ -109,15 +109,15 @@ Key input field notes:
 
 - `onboard` — Guided setup: authenticates (skips if already logged in), checks payment methods (prompts to add one if missing, shows picker if multiple), shows app download QR code, then runs the full demo. Requires a TTY.
 
-### attestations command (AAP)
+### attestations command
 
 `attestations request --count <n> [--issuer <url>] [--access-token <t>]` — mints Agent Attestation Tokens via the Privacy Pass Blind RSA protocol (token type `0x0002`, RFC 9578 / RFC 9577). Agent-only output. The SDK owns the protocol and API implementation in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`.
 
 - Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
-- Tokens use the AAP stable challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
+- Tokens use a stable Privacy Pass challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
 - Blind signatures are verified after unblinding before final tokens are returned.
-- Server-side max batch is 100. Issuance does not require an AAP-specific OAuth scope.
-- Auth: `--access-token`, else `AAP_ACCESS_TOKEN`, else stored CLI credentials.
+- Server-side max batch is 100. Issuance does not require an additional OAuth scope.
+- Auth: `--access-token`, else stored CLI credentials.
 
 ### serve command
 

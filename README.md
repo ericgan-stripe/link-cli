@@ -282,7 +282,7 @@ link-cli attestations request --count 10
 link-cli attestations request --count 10 --issuer https://api.link.com
 ```
 
-`attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`; no AAP-specific OAuth scope is required. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
+`attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
 
 ### Spend request lifecycle
 

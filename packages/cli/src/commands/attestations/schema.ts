@@ -15,6 +15,6 @@ export const requestOptions = z.object({
     .string()
     .optional()
     .describe(
-      'Bearer token for IDP authentication. Defaults to the AAP_ACCESS_TOKEN env var, then the stored credentials from "link-cli auth login".',
+      'Bearer token for IDP authentication. Defaults to the stored credentials from "link-cli auth login".',
     ),
 });

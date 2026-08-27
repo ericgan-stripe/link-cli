@@ -16,9 +16,8 @@ export function createAttestationsCli(
     outputPolicy: 'agent-only' as const,
     async run(c) {
       const { count, issuer, accessToken } = c.options;
-      const token = accessToken ?? process.env.AAP_ACCESS_TOKEN;
 
-      return createResource(token).request({
+      return createResource(accessToken).request({
         issuer,
         count,
       });
