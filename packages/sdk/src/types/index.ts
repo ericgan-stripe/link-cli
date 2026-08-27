@@ -229,7 +229,7 @@ export interface Transaction {
   description: string;
   origin: TransactionOrigin;
   category: string | null;
-  status: string | null;
+  status: string;
 }
 
 export interface TransactionsPage {

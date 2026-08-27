@@ -44,12 +44,12 @@ export const updateOptions = z.object({
     .string()
     .optional()
     .describe(
-      'New category for the transaction. Must be a subcategory, not a category group — e.g. groceries, restaurants, rent, flights, coffee, electronics. Group-level values like "shopping" are rejected by the server. At least one of --category or --description is required. Empty strings are treated as absent and cannot clear the field.',
+      'New category for the transaction. Omitted fields are preserved.',
     ),
   description: z
     .string()
     .optional()
     .describe(
-      'New description for the transaction. Replaces the existing description. At least one of --category or --description is required. Empty strings are treated as absent and cannot clear the field. Omitted fields are preserved.',
+      'New description for the transaction, replacing the existing description. Omitted fields are preserved.',
     ),
 });

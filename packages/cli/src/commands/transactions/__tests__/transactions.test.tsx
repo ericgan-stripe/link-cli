@@ -179,10 +179,8 @@ describe('transactions update component', () => {
     });
   });
 
-  it('renders null category and null status without crashing', async () => {
-    const resource = makeUpdateResource(
-      transaction({ category: null, status: null }),
-    );
+  it('renders a null category without crashing', async () => {
+    const resource = makeUpdateResource(transaction({ category: null }));
 
     const { lastFrame } = render(
       <TransactionUpdate

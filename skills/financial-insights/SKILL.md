@@ -35,7 +35,7 @@ Use this skill to answer questions about a user’s Link-connected financial dat
 - Linked wallet sources
 - Basic summaries derived from the user’s financial data
 
-Most commands are read-only. The only write command is `transactions update`, which changes user-supplied metadata on a transaction — its category or description — and nothing else. No command moves money, initiates payments, modifies accounts, or exposes payment credentials.
+The `transactions list` command is read-only, and `transactions update` is a write command that updates the category or description on a transaction.
 
 ## Safety and privacy
 
@@ -122,7 +122,7 @@ Use the smallest command set that answers the user’s question.
 | Recent purchases, merchants, spend, transaction history, income, deposits, subscriptions | `link-cli transactions list` |
 | Current available balance, account balance, cash position | `link-cli balances list` |
 | Connected accounts, cards, banks, wallet sources, source metadata | `link-cli sources list` |
-| Recategorize a transaction, fix or change a transaction's category or description, rename a transaction | `link-cli transactions update` |
+| Recategorize a transaction, fix or change a transaction's category or description | `link-cli transactions update` |
 
 Examples:
 
@@ -201,11 +201,9 @@ link-cli transactions update <transaction_id> --category groceries --description
 Rules:
 
 - At least one of `--category` or `--description` is required.
-- `--category` must be a subcategory, not a category group. Group-level values such as `shopping` or `income` are rejected with `invalid_category`.
-- Fields cannot be cleared. An empty string is treated as absent, so passing `--description ""` does not blank the description.
 - Omitted fields are preserved — updating only the category leaves the description unchanged.
 - The response is a **single transaction object**, not enveloped in `data` (unlike `transactions list`).
-- Requires the `write_link_transactions` or `write_external_transactions` source action, plus ownership of the transaction. The command may return `feature_unavailable` if the feature is not enabled for the account; report that to the user rather than retrying.
+- Requires the `write_link_transactions` or `write_external_transactions` source action, plus ownership of the transaction.
 
 ### Response fields
 
@@ -214,7 +212,7 @@ Rules:
 | `amount` | Negative = money leaving the account (debit/purchase), positive = money entering (credit/deposit). |
 | `origin` | `external_connection` (from linked bank/card) or `link` (Link-native transaction). |
 | `category` | May be `null` if unclassified. |
-| `status` | API-provided status string, and may be `null` when the upstream status is unmapped — handle a missing status rather than assuming one is always present. Do not assume a closed set of values; observed values include `succeeded`. Interpret or filter a status only when its meaning is known. |
+| `status` | API-provided status string. Do not assume a closed set of values; observed values include `succeeded`. Interpret or filter a status only when its meaning is known. |
 
 For transaction summaries:
 
@@ -348,7 +346,7 @@ Do not:
 
 Do:
 
-- Use read-only commands, except `transactions update` when the user asks to change a transaction's category or description.
+- Use read-only commands, unless the user asks to change information about a transaction.
 - Authenticate before retrieval.
 - Request the minimum required source actions.
 - Use `--format json` for parsing.

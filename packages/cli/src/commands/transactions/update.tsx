@@ -77,7 +77,7 @@ export const TransactionUpdate: React.FC<TransactionUpdateProps> = ({
           Date: <Text bold>{transaction?.created_date}</Text>
         </Text>
         <Text>
-          Status: <Text bold>{transaction?.status ?? 'N/A'}</Text>
+          Status: <Text bold>{transaction?.status}</Text>
         </Text>
       </Box>
     </Box>

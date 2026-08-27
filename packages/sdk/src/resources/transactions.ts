@@ -17,7 +17,7 @@ const transactionSchema = z.looseObject({
   description: z.string(),
   origin: z.enum(['link', 'external_connection']),
   category: z.string().nullable(),
-  status: z.string().nullable(),
+  status: z.string(),
 });
 const transactionsPageSchema = z.union([
   z.array(transactionSchema).transform((data) => ({ data })),

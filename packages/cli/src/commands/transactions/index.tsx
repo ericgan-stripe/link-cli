@@ -86,8 +86,7 @@ export function createTransactionsCli(
       if (category === undefined && description === undefined) {
         return c.error({
           code: 'MISSING_UPDATE_FIELDS',
-          message:
-            'Must provide at least one of --category or --description. Empty values are ignored; these fields cannot be cleared.',
+          message: 'Must provide at least one of --category or --description.',
         });
       }
 

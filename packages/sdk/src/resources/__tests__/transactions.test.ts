@@ -224,11 +224,10 @@ describe('TransactionsResource', () => {
       expect(result).toEqual(bareTransaction);
     });
 
-    it('parses null category and null status', async () => {
+    it('parses a null category', async () => {
       mockFetchResponse(200, {
         ...bareTransaction,
         category: null,
-        status: null,
       });
 
       const result = await repo.update('lbctxn_123', {
@@ -236,7 +235,6 @@ describe('TransactionsResource', () => {
       });
 
       expect(result.category).toBeNull();
-      expect(result.status).toBeNull();
     });
 
     it('throws API errors with the response message', async () => {
