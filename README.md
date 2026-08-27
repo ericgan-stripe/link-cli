@@ -299,9 +299,11 @@ LINK_IDENTITY_COMMANDS=1 link-cli identity credentials get --key-file ~/.link/ho
 
 ### Identity-aware HTTP requests
 
+Unlisted command: set `LINK_IDENTITY_COMMANDS=1` to enable it. It is omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+
 ```bash
-link-cli request https://merchant.example/checkout
-link-cli request https://merchant.example/checkout --claims email,given_name
+LINK_IDENTITY_COMMANDS=1 link-cli request https://merchant.example/checkout
+LINK_IDENTITY_COMMANDS=1 link-cli request https://merchant.example/checkout --claims email,given_name
 ```
 
 When the HTTPS origin returns an `Identity-Presentation` challenge, `request` provisions a holder-bound credential, selects only the requested claims, validates the audience/format/trusted issuer, and retries with both the presentation and a request-specific Web Bot Auth signature. Redirects are not followed.

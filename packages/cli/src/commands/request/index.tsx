@@ -28,6 +28,7 @@ export function createRequestCli(
     args: requestArgs,
     options: requestOptions,
     alias: { method: 'X', data: 'd', header: 'H' },
+    mcp: false,
     // Deliberately not 'agent-only': this is a human-facing command, and that policy
     // suppresses all output on a TTY unless --format is passed explicitly.
     async run(c) {

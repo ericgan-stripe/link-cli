@@ -135,6 +135,8 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 
 ### request command
 
+Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
+
 `request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — satisfies a pre-provisioned identity-claims challenge and retries with a holder-bound presentation. HTTPS is required except for loopback development.
 
 - Recognizes a challenge only when status is 401, `WWW-Authenticate` includes `Identity-Presentation`, content type is `application/problem+json`, and the body type is `urn:aap:claims-required`.

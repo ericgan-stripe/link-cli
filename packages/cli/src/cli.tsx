@@ -103,15 +103,15 @@ if (identityCommandsEnabled) {
         factory.createCredentialsResource(accessToken),
     }),
   );
+  cli.command(
+    createRequestCli(
+      () => factory.createCredentialsResource(),
+      () => factory.createWebBotAuthResource(),
+      authStorage,
+      envAccessToken,
+    ),
+  );
 }
-cli.command(
-  createRequestCli(
-    () => factory.createCredentialsResource(),
-    () => factory.createWebBotAuthResource(),
-    authStorage,
-    envAccessToken,
-  ),
-);
 cli.command(
   createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
 );
