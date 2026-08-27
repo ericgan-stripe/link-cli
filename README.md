@@ -277,9 +277,11 @@ All commands accept `--auth <path>` to store auth credentials in a specific file
 
 ### Agent attestation tokens
 
+Unlisted command: set `LINK_IDENTITY_COMMANDS=1` to enable it. It is omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+
 ```bash
-link-cli attestations request --count 10
-link-cli attestations request --count 10 --issuer https://api.link.com
+LINK_IDENTITY_COMMANDS=1 link-cli attestations request --count 10
+LINK_IDENTITY_COMMANDS=1 link-cli attestations request --count 10 --issuer https://api.link.com
 ```
 
 `attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.

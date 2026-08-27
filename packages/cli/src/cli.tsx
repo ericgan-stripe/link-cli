@@ -89,7 +89,17 @@ if (!isAgent && process.stdout.isTTY) {
   }
 }
 
-cli.command(createAttestationsCli(() => factory.createAttestationsResource()));
+const identityCommandsEnabled =
+  process.env.LINK_IDENTITY_COMMANDS === '1' ||
+  process.env.LINK_IDENTITY_COMMANDS === 'true';
+
+if (identityCommandsEnabled) {
+  cli.command(
+    createAttestationsCli((accessToken) =>
+      factory.createAttestationsResource(accessToken),
+    ),
+  );
+}
 cli.command(
   createAuthCli(authRepo, getUpdateInfo, authStorage, envAccessToken),
 );

@@ -111,6 +111,8 @@ Key input field notes:
 
 ### attestations command
 
+Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
+
 `attestations request --count <n> [--issuer <url>] [--access-token <t>]` — mints Agent Attestation Tokens via the Privacy Pass Blind RSA protocol (token type `0x0002`, RFC 9578 / RFC 9577). Agent-only output. The SDK owns the protocol and API implementation in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`.
 
 - Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
@@ -160,3 +162,4 @@ JSON output mode (`--format json`) is **not** affected — `JSON.stringify` enco
 | `LINK_API_BASE_URL` | Override API base URL |
 | `LINK_AUTH_BASE_URL` | Override auth base URL |
 | `LINK_HTTP_PROXY` | Route all SDK requests through an HTTP proxy (requires `undici` installed) |
+| `LINK_IDENTITY_COMMANDS` | When `1` or `true`, register the unlisted `attestations` command. Omitted from `--help`, `--llms`, and MCP otherwise. |

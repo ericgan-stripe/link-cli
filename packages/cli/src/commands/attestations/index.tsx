@@ -13,6 +13,7 @@ export function createAttestationsCli(
     description:
       'Request attestation tokens from an IDP using the Privacy Pass Blind RSA protocol (RFC 9578 type 0x0002). Returns tokens ready for use in Authorization: PrivateToken headers.',
     options: requestOptions,
+    mcp: false,
     outputPolicy: 'agent-only' as const,
     async run(c) {
       const { count, issuer, accessToken } = c.options;
