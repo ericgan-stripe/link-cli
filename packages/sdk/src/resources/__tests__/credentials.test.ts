@@ -23,10 +23,10 @@ describe('CredentialsResource', () => {
         if (url.endsWith('/.well-known/aap-issuer')) {
           return jsonResponse({
             issuer: 'https://issuer.example',
-            credential_endpoint: 'https://issuer.example/aap-issuer/credential',
+            credential_endpoint: 'https://issuer.example/credential',
           });
         }
-        expect(url).toBe('https://issuer.example/aap-issuer/credential');
+        expect(url).toBe('https://issuer.example/credential');
         expect(init?.headers).toMatchObject({
           Authorization: 'Bearer access-token',
         });

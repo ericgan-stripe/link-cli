@@ -9,7 +9,7 @@ import {
 import {
   parseIssuerOrigin,
   requireIssuerEndpoint,
-} from '@/resources/aap-issuer';
+} from '@/resources/issuer-origin';
 import {
   type FinalToken,
   base64urlEncode,

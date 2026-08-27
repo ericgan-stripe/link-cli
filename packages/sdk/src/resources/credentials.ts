@@ -3,7 +3,7 @@ import { LinkApiError, LinkResponseError, LinkTransportError } from '@/errors';
 import {
   parseIssuerOrigin,
   requireIssuerEndpoint,
-} from '@/resources/aap-issuer';
+} from '@/resources/issuer-origin';
 import { BaseResource } from '@/resources/base';
 import type {
   CredentialIssueParams,
