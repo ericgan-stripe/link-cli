@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'incur';
+import { DEFAULT_AAT_POOL_PATH } from '../attestations/pool';
 
 export const requestArgs = z.object({
   url: z
@@ -16,6 +17,12 @@ export const requestOptions = z.object({
     .optional()
     .describe(
       'Comma-separated user-info fields to share, e.g. "email,given_name,family_name". Only these are sent. Defaults to what the site asked for.',
+    ),
+  poolFile: z
+    .string()
+    .default(DEFAULT_AAT_POOL_PATH)
+    .describe(
+      'Local file of unused attestation tokens from identity attestations request.',
     ),
   method: z
     .string()

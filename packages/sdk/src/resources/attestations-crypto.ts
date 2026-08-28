@@ -365,16 +365,16 @@ export function unblindSignatures(
   return results;
 }
 
-export function computeChallengeDigest(
+/**
+ * Stable TokenChallenge this profile pools against: fixed issuer_name, empty
+ * redemption_context, empty origin_info (RFC 9577).
+ */
+export function encodeStableTokenChallenge(
   tokenType: number,
   issuerName: string,
 ): Uint8Array {
   const issuerBytes = Buffer.from(issuerName, 'utf-8');
-  const originBytes = Buffer.alloc(0);
-
-  const challenge = Buffer.alloc(
-    2 + 2 + issuerBytes.length + 1 + 2 + originBytes.length,
-  );
+  const challenge = Buffer.alloc(2 + 2 + issuerBytes.length + 1 + 2);
   let offset = 0;
 
   challenge.writeUInt16BE(tokenType, offset);
@@ -385,11 +385,52 @@ export function computeChallengeDigest(
   offset += issuerBytes.length;
   challenge.writeUInt8(0, offset);
   offset += 1;
-  challenge.writeUInt16BE(originBytes.length, offset);
-  offset += 2;
-  if (originBytes.length > 0) {
-    originBytes.copy(challenge, offset);
-  }
+  challenge.writeUInt16BE(0, offset);
 
-  return new Uint8Array(createHash('sha256').update(challenge).digest());
+  return new Uint8Array(challenge);
+}
+
+export function computeChallengeDigest(
+  tokenType: number,
+  issuerName: string,
+): Uint8Array {
+  return new Uint8Array(
+    createHash('sha256')
+      .update(encodeStableTokenChallenge(tokenType, issuerName))
+      .digest(),
+  );
+}
+
+export interface ParsedFinalToken {
+  tokenType: number;
+  nonce: Uint8Array;
+  challengeDigest: Uint8Array;
+  tokenKeyId: Uint8Array;
+  authenticator: Uint8Array;
+  raw: Uint8Array;
+}
+
+export function parseFinalToken(token: string): ParsedFinalToken {
+  const raw = base64urlDecode(token);
+  const prefix = 2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE + TOKEN_KEY_ID_SIZE;
+  if (raw.length <= prefix) {
+    throw new Error('PrivateToken is too short');
+  }
+  const tokenType = ((raw[0] ?? 0) << 8) | (raw[1] ?? 0);
+  if (tokenType !== TOKEN_TYPE) {
+    throw new Error(
+      `Unsupported PrivateToken type 0x${tokenType.toString(16)}`,
+    );
+  }
+  return {
+    tokenType,
+    nonce: raw.slice(2, 2 + NONCE_SIZE),
+    challengeDigest: raw.slice(
+      2 + NONCE_SIZE,
+      2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE,
+    ),
+    tokenKeyId: raw.slice(2 + NONCE_SIZE + CHALLENGE_DIGEST_SIZE, prefix),
+    authenticator: raw.slice(prefix),
+    raw,
+  };
 }

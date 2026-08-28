@@ -286,7 +286,7 @@ LINK_IDENTITY_COMMANDS=1 link-cli identity attestations request --count 10
 LINK_IDENTITY_COMMANDS=1 link-cli identity attestations request --count 10 --issuer https://api.link.com
 ```
 
-`identity attestations request` asks Link for a pool of those tokens (`--count` 1–100). You can pass an HTTPS `--issuer` and an `--access-token`; otherwise stored login credentials are used. Issuer discovery and issuance stay on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
+`identity attestations request` asks Link for a pool of those tokens (`--count` 1–100) and stores unused tokens in `~/.link/aat-pool.json` for `identity request`. You can pass an HTTPS `--issuer` and an `--access-token`; otherwise stored login credentials are used. Issuer discovery and issuance stay on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
 
 User info that has been signed, proving it comes from Link:
 
@@ -297,14 +297,14 @@ LINK_IDENTITY_COMMANDS=1 link-cli identity credentials get --key-file ~/.link/ho
 
 `identity credentials get` fetches that signed user info and keeps a local key so you can present the same wallet of claims later. Link tells the CLI where to request it; there is no fixed path to hard-code.
 
-If a site asks who you are, present that signed user info on an HTTPS request:
+If a site asks for attestation or who you are, present a pooled attestation token and signed user info on an HTTPS request:
 
 ```bash
 LINK_IDENTITY_COMMANDS=1 link-cli identity request https://merchant.example/checkout
 LINK_IDENTITY_COMMANDS=1 link-cli identity request https://merchant.example/checkout --claims email,given_name
 ```
 
-`identity request` sends the HTTP request. When the site asks for signed user info, it gets that from Link, shares only the requested fields, and retries. Redirects are not followed.
+`identity request` sends the HTTP request. When the site challenges with `PrivateToken`, it spends one token from the local pool. When the site asks for signed user info, it gets that from Link, shares only the requested fields, and retries. Both challenges can appear on the same `401`. The retry is signed with a request-specific Web Bot Auth HTTP Message Signature covering the presented token and user info. Redirects are not followed.
 
 ### Spend request lifecycle
 

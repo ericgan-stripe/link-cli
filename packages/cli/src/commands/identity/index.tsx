@@ -10,12 +10,8 @@ import { createCredentialsCli } from '../credentials';
 import { createRequestCli } from '../request';
 
 export function createIdentityCli(options: {
-  createAttestationsResource: (
-    accessToken?: string,
-  ) => IAttestationsResource;
-  createCredentialsResource: (
-    accessToken?: string,
-  ) => ICredentialsResource;
+  createAttestationsResource: (accessToken?: string) => IAttestationsResource;
+  createCredentialsResource: (accessToken?: string) => ICredentialsResource;
   createWebBotAuthResource: () => IWebBotAuthResource;
   authStorage?: CliAuthStorage;
   envAccessToken?: string;

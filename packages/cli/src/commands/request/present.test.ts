@@ -65,6 +65,31 @@ describe('identity presentation', () => {
     ).toBeNull();
   });
 
+  it('recognizes Identity-Presentation next to a PrivateToken challenge', () => {
+    expect(
+      parseClaimsChallenge(
+        {
+          status: 401,
+          headers: new Headers({
+            'WWW-Authenticate':
+              'PrivateToken challenge="AAEC", token-key="AAEC", max-age=300, Identity-Presentation',
+            'Content-Type': 'application/problem+json',
+          }),
+        },
+        JSON.stringify({
+          type: 'urn:aap:claims-required',
+          aud: 'https://merchant.example',
+          nonce: 'n',
+          claims: ['email'],
+          formats: ['dc+sd-jwt'],
+        }),
+      ),
+    ).toMatchObject({
+      aud: 'https://merchant.example',
+      claims: ['email'],
+    });
+  });
+
   it('selects nested claim paths and uses the credential _sd_alg', () => {
     const email = encoded(['salt-email', 'email', 'a@example.com']);
     const street = encoded(['salt-street', 'street', 'Main Street']);

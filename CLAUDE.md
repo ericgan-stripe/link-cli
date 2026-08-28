@@ -114,11 +114,12 @@ Key input field notes:
 
 Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
 
-`identity attestations request --count <n> [--issuer <url>] [--access-token <t>]` — gets privacy-preserving tokens that show Link attests to your agent. Agent-only output. The SDK owns issuance in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`, mounted under `packages/cli/src/commands/identity/`.
+`identity attestations request --count <n> [--issuer <url>] [--access-token <t>] [--pool-file <path>]` — gets privacy-preserving tokens that show Link attests to your agent. Agent-only output. The SDK owns issuance in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`, mounted under `packages/cli/src/commands/identity/`.
 
 - Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
 - Tokens use a stable challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
 - Blind signatures are verified after unblinding before final tokens are returned.
+- Unused tokens are persisted to `--pool-file` (default `~/.link/aat-pool.json`, mode 0600) so `identity request` can answer `PrivateToken` challenges without a synchronous issuance round-trip.
 - Server-side max batch is 100. Issuance does not require an additional OAuth scope.
 - Auth: `--access-token`, else stored CLI credentials.
 
@@ -137,9 +138,10 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 
 Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
 
-`identity request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — makes an HTTPS request and, if the site asks who you are, presents signed user info from Link. HTTPS is required except for loopback development.
+`identity request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256] [--pool-file <path>]` — makes an HTTPS request and, if the site asks for attestation or who you are, presents a pooled Link attestation token and signed user info. HTTPS is required except for loopback development.
 
-- Recognizes a challenge only when status is 401, `WWW-Authenticate` includes `Identity-Presentation`, content type is `application/problem+json`, and the body type is `urn:aap:claims-required`.
+- Recognizes a `PrivateToken` challenge (`WWW-Authenticate: PrivateToken challenge=..., token-key=...`) and answers from `--pool-file` with `Authorization: PrivateToken token=...`. Tokens are single-use; an empty or non-matching pool fails closed (`AAT_POOL_EMPTY` / `AAT_NO_MATCH`).
+- Recognizes a claims challenge only when status is 401, `WWW-Authenticate` includes `Identity-Presentation`, content type is `application/problem+json`, and the body type is `urn:aap:claims-required`. Combined `401`s (PrivateToken + Identity-Presentation) are answered in one retry.
 - Requires the challenge `aud` to exactly equal the request origin, supports `dc+sd-jwt`, and honors `trusted_issuers`.
 - Supports string and nested claims path pointers. `sd_hash` uses the credential's `_sd_alg` (default `sha-256`).
 - The retry uses a request-specific HTTP Message Signature covering method, authority, path, `Signature-Agent`, `Identity-Presentation`, any `Authorization`, and `Content-Digest` when a body is present.

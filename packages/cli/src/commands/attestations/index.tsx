@@ -17,12 +17,21 @@ export function createAttestationsCli(
     mcp: false,
     outputPolicy: 'agent-only' as const,
     async run(c) {
-      const { count, issuer, accessToken } = c.options;
+      const { count, issuer, accessToken, poolFile } = c.options;
+      const { remainingCount, saveIssuedTokens } = await import('./pool');
 
-      return createResource(accessToken).request({
+      const result = await createResource(accessToken).request({
         issuer,
         count,
       });
+      saveIssuedTokens(poolFile, result);
+      return {
+        ...result,
+        pool: {
+          path: poolFile,
+          remaining: remainingCount(poolFile),
+        },
+      };
     },
   });
 
