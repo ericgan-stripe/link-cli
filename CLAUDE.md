@@ -39,7 +39,7 @@ node packages/cli/dist/cli.js <command>
 
 Defined in `packages/sdk/src/resources/interfaces.ts`:
 - `IAttestationsResource` — Privacy Pass Blind RSA token issuance
-- `ICredentialsResource` — holder-bound SD-JWT-VC issuance
+- `ICredentialsResource` — signed user info issuance
 - `ISpendRequestResource` — CRUD + request-approval for spend requests
 
 The SDK only accepts credentials. Device authorization, refresh-token
@@ -122,15 +122,15 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 - Server-side max batch is 100. Issuance does not require an additional OAuth scope.
 - Auth: `--access-token`, else stored CLI credentials.
 
-### credentials command
+### identity credentials command
 
 Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
 
-`credentials issue [--key-file <path>] [--key-type ed25519|p256] [--access-token <t>]` — provisions a short-lived holder-bound SD-JWT-VC with the user's identity claims. Agent-only output. The SDK discovers and calls `credential_endpoint`; the CLI owns holder-key persistence, disclosure decoding, schema, and command registration.
+`identity credentials get [--key-file <path>] [--key-type ed25519|p256] [--access-token <t>]` — gets signed user info proving it comes from Link (a wallet of claims such as name, email, and phone). Agent-only output. The SDK discovers and calls `credential_endpoint`; the CLI owns local key persistence, claim decoding, schema, and command registration under `packages/cli/src/commands/identity/`.
 
 - Discovery uses `GET <issuer>/.well-known/aap-issuer`, where `<issuer>` is `LINK_API_BASE_URL` or `https://api.link.com`. The metadata `issuer` and `credential_endpoint` must remain on that HTTPS DNS origin.
 - `POST <credential_endpoint>` sends `{"cnf":{"jwk":<public JWK>}}`. Only the public Ed25519 or P-256 members are sent.
-- The private holder key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs.
+- The private key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs.
 - Requires `userinfo:read` and `payment_methods.agentic`; no additional OAuth scope is required.
 
 ### serve command

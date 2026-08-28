@@ -1,18 +1,19 @@
 import type { ICredentialsResource } from '@stripe/link-sdk';
 import { Cli } from 'incur';
-import { issueOptions } from './schema';
+import { getOptions } from './schema';
 
 export function createCredentialsCli(
   createResource: (accessToken?: string) => ICredentialsResource,
 ) {
   const cli = Cli.create('credentials', {
-    description: 'Agent identity credential (SD-JWT-VC) commands',
+    description:
+      'User info that has been signed, proving it comes from Link.',
   });
 
-  cli.command('issue', {
+  cli.command('get', {
     description:
-      "Issue a short-lived SD-JWT-VC holding the user's identity claims (email, phone_number, given_name, family_name), bound to a local holder key. Present selective disclosures from it to merchants.",
-    options: issueOptions,
+      'Get signed user info proving it comes from Link. Includes a wallet of claims such as name, email, and phone that you can present later.',
+    options: getOptions,
     mcp: false,
     outputPolicy: 'agent-only' as const,
     async run(c) {

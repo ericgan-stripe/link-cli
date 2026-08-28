@@ -1,10 +1,9 @@
 import { Cli } from 'incur';
 import { type CliAuthStorage, Storage, storage } from './auth/storage';
 import { createAuthCli } from './commands/auth';
-import { createIdentityCli } from './commands/identity';
 import { createBalancesCli } from './commands/balances';
-import { createCredentialsCli } from './commands/credentials';
 import { createDemoCli } from './commands/demo';
+import { createIdentityCli } from './commands/identity';
 import { createMppCli } from './commands/mpp';
 import { createOnboardCli } from './commands/onboard';
 import { createPaymentMethodsCli } from './commands/payment-methods';
@@ -99,12 +98,9 @@ if (identityCommandsEnabled) {
     createIdentityCli({
       createAttestationsResource: (accessToken) =>
         factory.createAttestationsResource(accessToken),
+      createCredentialsResource: (accessToken) =>
+        factory.createCredentialsResource(accessToken),
     }),
-  );
-  cli.command(
-    createCredentialsCli((accessToken) =>
-      factory.createCredentialsResource(accessToken),
-    ),
   );
 }
 cli.command(
