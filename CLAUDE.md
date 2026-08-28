@@ -51,7 +51,7 @@ Commands in `packages/cli/src/cli.tsx` (incur framework). Each has two output mo
 - **Interactive** (default): Ink/React components from `packages/cli/src/commands/`
 - **JSON** (`--format json`): JSON to stdout, errors as JSON with `code` and `message` fields with exit code 1
 
-Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `attestations request`, `serve`.
+Commands: `auth login|logout|status`, `spend-request create|update|retrieve|request-approval|cancel`, `payment-methods list`, `shipping-address list`, `mpp pay|decode`, `identity attestations request`, `serve`.
 
 The CLI also runs as an MCP server (`--mcp`) and serves skill files via `skills` subcommand, both provided by incur.
 
@@ -109,14 +109,14 @@ Key input field notes:
 
 - `onboard` — Guided setup: authenticates (skips if already logged in), checks payment methods (prompts to add one if missing, shows picker if multiple), shows app download QR code, then runs the full demo. Requires a TTY.
 
-### attestations command
+### identity attestations command
 
 Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
 
-`attestations request --count <n> [--issuer <url>] [--access-token <t>]` — mints Agent Attestation Tokens via the Privacy Pass Blind RSA protocol (token type `0x0002`, RFC 9578 / RFC 9577). Agent-only output. The SDK owns the protocol and API implementation in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`.
+`identity attestations request --count <n> [--issuer <url>] [--access-token <t>]` — gets privacy-preserving tokens that show Link attests to your agent. Agent-only output. The SDK owns issuance in `packages/sdk/src/resources/attestations.ts` and `attestations-crypto.ts`; CLI schema and registration remain in `packages/cli/src/commands/attestations/`, mounted under `packages/cli/src/commands/identity/`.
 
 - Discovery: `GET <issuer>/.well-known/aap-issuer` → metadata, then `GET` its `token_keys` URL. The issuer and every discovered endpoint must use HTTPS on the same DNS origin; redirects and IP-literal hosts are rejected before credentials are sent.
-- Tokens use a stable Privacy Pass challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
+- Tokens use a stable challenge: fixed `issuer_name`, empty `redemption_context`, and empty `origin_info`.
 - Blind signatures are verified after unblinding before final tokens are returned.
 - Server-side max batch is 100. Issuance does not require an additional OAuth scope.
 - Auth: `--access-token`, else stored CLI credentials.
@@ -162,4 +162,4 @@ JSON output mode (`--format json`) is **not** affected — `JSON.stringify` enco
 | `LINK_API_BASE_URL` | Override API base URL |
 | `LINK_AUTH_BASE_URL` | Override auth base URL |
 | `LINK_HTTP_PROXY` | Route all SDK requests through an HTTP proxy (requires `undici` installed) |
-| `LINK_IDENTITY_COMMANDS` | When `1` or `true`, register the unlisted `attestations` command. Omitted from `--help`, `--llms`, and MCP otherwise. |
+| `LINK_IDENTITY_COMMANDS` | When `1` or `true`, register the unlisted `identity` command group. Omitted from `--help`, `--llms`, and MCP otherwise. |

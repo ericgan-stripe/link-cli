@@ -6,12 +6,13 @@ export function createAttestationsCli(
   createResource: (accessToken?: string) => IAttestationsResource,
 ) {
   const cli = Cli.create('attestations', {
-    description: 'Agent Attestation Token (AAT) commands',
+    description:
+      'A privacy-preserving token that shows Link attests to your agent.',
   });
 
   cli.command('request', {
     description:
-      'Request attestation tokens from an IDP using the Privacy Pass Blind RSA protocol (RFC 9578 type 0x0002). Returns tokens ready for use in Authorization: PrivateToken headers.',
+      'Get privacy-preserving tokens that show Link attests to your agent.',
     options: requestOptions,
     mcp: false,
     outputPolicy: 'agent-only' as const,

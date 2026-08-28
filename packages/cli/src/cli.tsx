@@ -1,7 +1,7 @@
 import { Cli } from 'incur';
 import { type CliAuthStorage, Storage, storage } from './auth/storage';
-import { createAttestationsCli } from './commands/attestations';
 import { createAuthCli } from './commands/auth';
+import { createIdentityCli } from './commands/identity';
 import { createBalancesCli } from './commands/balances';
 import { createDemoCli } from './commands/demo';
 import { createMppCli } from './commands/mpp';
@@ -95,9 +95,10 @@ const identityCommandsEnabled =
 
 if (identityCommandsEnabled) {
   cli.command(
-    createAttestationsCli((accessToken) =>
-      factory.createAttestationsResource(accessToken),
-    ),
+    createIdentityCli({
+      createAttestationsResource: (accessToken) =>
+        factory.createAttestationsResource(accessToken),
+    }),
   );
 }
 cli.command(

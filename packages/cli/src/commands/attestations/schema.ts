@@ -6,15 +6,15 @@ export const requestOptions = z.object({
     .int()
     .positive()
     .max(100)
-    .describe('Number of attestation tokens to request'),
+    .describe('Number of tokens to request'),
   issuer: z
     .string()
     .default('https://api.link.com')
-    .describe('Issuer origin URL'),
+    .describe('Link origin that attests to your agent'),
   accessToken: z
     .string()
     .optional()
     .describe(
-      'Bearer token for IDP authentication. Defaults to the stored credentials from "link-cli auth login".',
+      'Access token. Defaults to the stored credentials from "link-cli auth login".',
     ),
 });

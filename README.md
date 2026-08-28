@@ -275,16 +275,18 @@ Set `NO_UPDATE_NOTIFIER=1` to suppress update checks (for example, in CI).
 
 All commands accept `--auth <path>` to store auth credentials in a specific file instead of the default location. `auth login` writes to this file; all other commands read from it. Useful for running multiple sessions with separate identities.
 
-### Agent attestation tokens
+### Identity
 
-Unlisted command: set `LINK_IDENTITY_COMMANDS=1` to enable it. It is omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+Unlisted commands: set `LINK_IDENTITY_COMMANDS=1` to enable them. They are omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+
+Privacy-preserving tokens that show Link attests to your agent:
 
 ```bash
-LINK_IDENTITY_COMMANDS=1 link-cli attestations request --count 10
-LINK_IDENTITY_COMMANDS=1 link-cli attestations request --count 10 --issuer https://api.link.com
+LINK_IDENTITY_COMMANDS=1 link-cli identity attestations request --count 10
+LINK_IDENTITY_COMMANDS=1 link-cli identity attestations request --count 10 --issuer https://api.link.com
 ```
 
-`attestations request` fills an Agent Attestation Token pool using Privacy Pass Blind RSA. It accepts `--count` (1–100), an optional HTTPS `--issuer`, and an optional `--access-token`. Issuer discovery and issuance endpoints must remain on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
+`identity attestations request` asks Link for a pool of those tokens (`--count` 1–100). You can pass an HTTPS `--issuer` and an `--access-token`; otherwise stored login credentials are used. Issuer discovery and issuance stay on the issuer's HTTPS DNS origin; redirects and IP-literal hosts are rejected.
 
 ### Spend request lifecycle
 
