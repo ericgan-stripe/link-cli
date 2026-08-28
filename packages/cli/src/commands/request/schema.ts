@@ -15,7 +15,7 @@ export const requestOptions = z.object({
     .string()
     .optional()
     .describe(
-      'Comma-separated top-level claims to disclose, e.g. "email,given_name,family_name". Only these are sent, even if the credential holds more. Defaults to the server claim references, including nested paths.',
+      'Comma-separated user-info fields to share, e.g. "email,given_name,family_name". Only these are sent. Defaults to what the site asked for.',
     ),
   method: z
     .string()
@@ -33,12 +33,12 @@ export const requestOptions = z.object({
     .string()
     .default(join(homedir(), '.link', 'holder-key.jwk'))
     .describe(
-      'Path to the holder private key (JWK), generated with 0600 permissions if absent. The credential is bound to this key.',
+      'Path to a local key file. Created if missing. Reuse the same file used by identity credentials get.',
     ),
   keyType: z
     .enum(['ed25519', 'p256'])
     .default('ed25519')
     .describe(
-      'Holder key type to generate when --key-file does not exist yet. Ignored when it does.',
+      'Key type to generate when --key-file does not exist yet. Ignored when it does.',
     ),
 });

@@ -133,16 +133,16 @@ Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENT
 - The private key is persisted at `--key-file` (default `~/.link/holder-key.jwk`, mode 0600) and reused across runs.
 - Requires `userinfo:read` and `payment_methods.agentic`; no additional OAuth scope is required.
 
-### request command
+### identity request command
 
 Unlisted: omitted from `--help`, `--llms`, and MCP tool lists unless `LINK_IDENTITY_COMMANDS=1` (or `true`). Even when enabled, the command sets `mcp: false` so MCP clients do not see it.
 
-`request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — satisfies a pre-provisioned identity-claims challenge and retries with a holder-bound presentation. HTTPS is required except for loopback development.
+`identity request <url> [--claims "a,b,c"] [-X <method>] [-d <body>] [-H <header>]... [--key-file <path>] [--key-type ed25519|p256]` — makes an HTTPS request and, if the site asks who you are, presents signed user info from Link. HTTPS is required except for loopback development.
 
 - Recognizes a challenge only when status is 401, `WWW-Authenticate` includes `Identity-Presentation`, content type is `application/problem+json`, and the body type is `urn:aap:claims-required`.
 - Requires the challenge `aud` to exactly equal the request origin, supports `dc+sd-jwt`, and honors `trusted_issuers`.
 - Supports string and nested claims path pointers. `sd_hash` uses the credential's `_sd_alg` (default `sha-256`).
-- The retry uses a request-specific Web Bot Auth HTTP Message Signature covering method, authority, path, `Signature-Agent`, `Identity-Presentation`, any `Authorization`, and `Content-Digest` when a body is present.
+- The retry uses a request-specific HTTP Message Signature covering method, authority, path, `Signature-Agent`, `Identity-Presentation`, any `Authorization`, and `Content-Digest` when a body is present.
 - Redirects are not followed, preventing identity presentations or authorization credentials from crossing origins.
 
 ### serve command

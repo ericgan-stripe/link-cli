@@ -297,16 +297,14 @@ LINK_IDENTITY_COMMANDS=1 link-cli identity credentials get --key-file ~/.link/ho
 
 `identity credentials get` fetches that signed user info and keeps a local key so you can present the same wallet of claims later. Link tells the CLI where to request it; there is no fixed path to hard-code.
 
-### Identity-aware HTTP requests
-
-Unlisted command: set `LINK_IDENTITY_COMMANDS=1` to enable it. It is omitted from `--help`, `--llms`, and MCP tool lists otherwise.
+If a site asks who you are, present that signed user info on an HTTPS request:
 
 ```bash
-LINK_IDENTITY_COMMANDS=1 link-cli request https://merchant.example/checkout
-LINK_IDENTITY_COMMANDS=1 link-cli request https://merchant.example/checkout --claims email,given_name
+LINK_IDENTITY_COMMANDS=1 link-cli identity request https://merchant.example/checkout
+LINK_IDENTITY_COMMANDS=1 link-cli identity request https://merchant.example/checkout --claims email,given_name
 ```
 
-When the HTTPS origin returns an `Identity-Presentation` challenge, `request` provisions a holder-bound credential, selects only the requested claims, validates the audience/format/trusted issuer, and retries with both the presentation and a request-specific Web Bot Auth signature. Redirects are not followed.
+`identity request` sends the HTTP request. When the site asks for signed user info, it gets that from Link, shares only the requested fields, and retries. Redirects are not followed.
 
 ### Spend request lifecycle
 
