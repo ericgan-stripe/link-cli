@@ -310,6 +310,24 @@ card SpendRequest instead; do not create an LPT request.
 | Rolling creation rate | 200 per 60 days |
 
 
+Use `mpp pay` to complete purchases on merchants that use the [Machine Payments Protocol](https://mpp.dev). The spend request must use `credential_type: "shared_payment_token"` and you must approve it before paying. The SPT is one-time-use — if payment fails, create a new spend request.
+
+```bash
+link-cli mpp pay https://climate.stripe.dev/api/contribute \
+  --spend-request-id lsrq_001 \
+  --method POST \
+  --data '{"amount":100}' \
+  --header "X-Custom: value"
+```
+
+In agent mode (`--format json`), the full flow returns the payment continuation twice: as `_next.pay_argv` (`{ "command": "mpp", "args": [...] }`) and as `_next.pay_command`. Prefer `pay_argv` and invoke it directly, passing each `args` entry as its own process argument. The URL, body and headers can carry merchant-controlled text, so `pay_command` is shell-quoted for callers that must go through a shell — pass it to the shell verbatim, without unquoting or re-splitting it.
+
+Use `mpp decode` to validate a raw `WWW-Authenticate` header and extract the `network_id` needed for `shared_payment_token` spend requests:
+
+```bash
+link-cli mpp decode \
+  --challenge 'Payment id="ch_001", realm="merchant.example", method="stripe", intent="charge", request="..."'
+```
 
 ### Report outcomes
 
