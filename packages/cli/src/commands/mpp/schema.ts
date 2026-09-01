@@ -5,7 +5,7 @@ export const payOptions = z.object({
     .string()
     .optional()
     .describe(
-      'Approved spend request ID with credential_type "shared_payment_token". If omitted, the command handles the full flow: probe URL, parse challenge, create spend request, get approval, and pay.',
+      'Approved spend request ID with credential_type "shared_payment_token". Use the ID returned by an earlier mpp pay call to resume after approval.',
     ),
   method: z
     .string()

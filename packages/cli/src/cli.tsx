@@ -139,6 +139,11 @@ cli.command(
     () => factory.createPaymentMethodsResource(),
     authStorage,
     envAccessToken,
+    {
+      createAttestationsResource: () => factory.createAttestationsResource(),
+      createCredentialsResource: () => factory.createCredentialsResource(),
+      issuer: process.env.LINK_API_BASE_URL,
+    },
   ),
 );
 // cli.command(

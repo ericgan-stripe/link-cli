@@ -200,13 +200,15 @@ This same `requires_action` status can also appear later from `spend-request ret
 link-cli spend-request retrieve <id> --include card --output-file /tmp/link-card.json --format json
 ```
 
-**SPT with 402 flow:** `mpp pay` handles the entire machine payment flow end-to-end. It probes the URL for a 402 challenge, parses the `www-authenticate` header to extract the network ID and amount, creates a spend request, gets user approval, retrieves the SPT, and pays. SPTs are one-time use.
+**SPT with 402 flow:** `mpp pay` handles the entire machine payment flow end-to-end. It answers Link attestation and identity challenges automatically, probes for a 402 challenge, creates a spend request, gets user approval, retrieves the SPT, obtains fresh identity material for the paid request, and pays. Do not construct or pass attestation or identity-presentation headers yourself. SPTs are one-time use.
 
 ```bash
 link-cli mpp pay <url> --context "<description>" [-X POST] [-d '<body>'] [-H 'Name: Value'] [--test]
 ```
 
 The amount and currency are derived from the 402 challenge automatically. Pass `--amount` to override. `--context` is required (min 100 chars) — describe the purchase and rationale so the user understands what they are approving. The default payment method is used unless `--payment-method-id` is specified.
+
+In agent mode, present the returned approval URL to the user. After approval, run the returned `_next.command`; it is another `mpp pay` invocation and completes identity negotiation and payment without a separate `identity` or `spend-request retrieve` command.
 
 The SPT is **one-time use** — if the payment fails, run `mpp pay` again (it will create a new spend request).
 

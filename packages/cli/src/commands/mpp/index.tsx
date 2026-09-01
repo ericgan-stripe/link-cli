@@ -10,20 +10,30 @@ import { requireAuth } from '../../utils/require-auth';
 import { decodeStripeChallenge } from './decode';
 import { DecodeChallengeView } from './decode-view';
 import {
+  type MppIdentityResources,
+  createMppIdentityProvider,
+} from './identity';
+import {
   MppPay,
   type PayResult,
-  buildHeaders,
+  paymentChallengeHeader,
+  probeMppPayment,
   readPayResult,
   runMppPayFullFlow,
   runMppPayWithSpendRequest,
 } from './pay';
 import { decodeOptions, payOptions } from './schema';
 
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
 export function createMppCli(
   repository: ISpendRequestResource,
   paymentMethodsFactory: () => IPaymentMethodsResource,
   authStorage?: CliAuthStorage,
   envAccessToken?: string,
+  identityResources?: MppIdentityResources,
 ) {
   const cli = Cli.create('mpp', {
     description: 'Machine payment protocol (MPP) commands',
@@ -31,7 +41,7 @@ export function createMppCli(
 
   cli.command('pay', {
     description:
-      'Pay a URL via the Machine Payment Protocol. Handles the full 402 flow: probes the URL, parses the challenge, creates a spend request, gets approval, and pays with the SPT. Pass --spend-request-id to skip creation and use a pre-approved spend request.',
+      'Pay a URL via the Machine Payment Protocol. Handles Link identity challenges and the full 402 flow: probes the URL, creates a spend request, gets approval, and pays with the SPT. Pass --spend-request-id to resume with an approved spend request.',
     args: z.object({
       url: z.string().describe('URL to pay'),
     }),
@@ -45,6 +55,15 @@ export function createMppCli(
       const method = opts.method;
       const data = opts.data;
       const headers = opts.header?.length ? opts.header : undefined;
+      const identityProvider = identityResources
+        ? createMppIdentityProvider({
+            url,
+            method,
+            data,
+            headers,
+            resources: identityResources,
+          })
+        : undefined;
 
       if (!c.agent && !c.formatExplicit) {
         let capturedResult: PayResult | null = null;
@@ -61,6 +80,7 @@ export function createMppCli(
             test={opts.test}
             repository={repository}
             paymentMethodsFactory={paymentMethodsFactory}
+            identityProvider={identityProvider}
             onComplete={(result) => {
               capturedResult = result;
             }}
@@ -81,20 +101,21 @@ export function createMppCli(
           data,
           headers,
           repository,
+          identityProvider,
         );
         return;
       }
 
-      // Full flow in agent mode: yield approval URL mid-flow so the agent
-      // can present it to the user while we poll for approval inline.
-      const httpMethod = method ?? (data !== undefined ? 'POST' : 'GET');
-      const requestHeaders = buildHeaders(data, headers);
-
-      const probeResponse = await fetch(url, {
-        method: httpMethod,
-        body: data,
-        headers: requestHeaders,
-      });
+      // In agent mode the approval boundary becomes a second invocation of the
+      // same command. No identity or spend-request subcommand is exposed.
+      const probe = await probeMppPayment(
+        url,
+        method,
+        data,
+        headers,
+        identityProvider,
+      );
+      const probeResponse = probe.response;
 
       if (probeResponse.status !== 402) {
         yield await readPayResult(probeResponse);
@@ -108,6 +129,7 @@ export function createMppCli(
           message: 'URL returned 402 but no WWW-Authenticate header',
         });
       }
+      paymentChallengeHeader(probeResponse, probe.identityRequired);
 
       const decoded = decodeStripeChallenge(wwwAuth);
       const networkId = decoded.network_id;
@@ -160,22 +182,23 @@ export function createMppCli(
       });
 
       // Build the mpp pay command for _next with the spend request ID
-      const nextFlags = [`--spend-request-id ${spendRequest.id}`];
-      if (method) nextFlags.push(`-X ${method}`);
-      if (data) nextFlags.push(`-d '${data}'`);
+      const nextFlags = [`--spend-request-id ${shellQuote(spendRequest.id)}`];
+      if (method) nextFlags.push(`-X ${shellQuote(method)}`);
+      if (data) nextFlags.push(`-d ${shellQuote(data)}`);
       if (headers) {
-        for (const h of headers) nextFlags.push(`-H '${h}'`);
+        for (const h of headers) nextFlags.push(`-H ${shellQuote(h)}`);
       }
-      const nextCommand = `mpp pay ${url} ${nextFlags.join(' ')}`;
+      const nextCommand = `mpp pay ${shellQuote(url)} ${nextFlags.join(' ')}`;
 
       // Yield approval URL and return — agent drives completion via _next
       yield {
         ...spendRequest,
-        instruction: `Present the approval_url to the user and ask them to approve in the Link app. Then call \`spend-request retrieve ${spendRequest.id} --interval 2 --max-attempts 300\` to poll until approved. Once approved, run the _next.command to complete payment. Do not wait for the user to reply — start polling immediately.`,
+        instruction:
+          'Present the approval_url to the user and ask them to approve in the Link app. Once approved, run the _next.command. The resumed mpp pay command handles identity and payment; no separate identity or spend-request command is needed.',
         _next: {
-          poll_command: `spend-request retrieve ${spendRequest.id} --interval 2 --max-attempts 300`,
           pay_command: nextCommand,
-          until: 'status changes from pending_approval, then run pay_command',
+          command: nextCommand,
+          until: 'the user approves the spend request',
         },
       };
     },

@@ -20,7 +20,9 @@ export function createRequestCli(
     args: requestArgs,
     options: requestOptions,
     alias: { method: 'X', data: 'd', header: 'H' },
-    mcp: false,
+    // Incur honors mcp:false when this root command is mounted under identity,
+    // although its Root options type currently omits the supported value.
+    mcp: false as never,
     // Deliberately not 'agent-only': this is a human-facing command, and that policy
     // suppresses all output on a TTY unless --format is passed explicitly.
     async run(c) {

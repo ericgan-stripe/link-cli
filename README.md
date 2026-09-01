@@ -352,15 +352,17 @@ link-cli spend-request cancel lsrq_001
 
 ### MPP
 
-Use `mpp pay` to complete purchases on merchants that use the [Machine Payments Protocol](https://mpp.dev). The spend request must use `credential_type: "shared_payment_token"` and you must approve it before paying. The SPT is one-time-use — if payment fails, create a new spend request.
+Use `mpp pay` to complete purchases on merchants that use the [Machine Payments Protocol](https://mpp.dev). It handles Link attestation and identity challenges, creates the `shared_payment_token` spend request, and pays after approval. Attestations are replenished automatically in `~/.link/aat-pool.json`; identity holder keys default to `~/.link/holder-key.jwk`.
 
 ```bash
 link-cli mpp pay https://climate.stripe.dev/api/contribute \
-  --spend-request-id lsrq_001 \
+  --context "Purchase carbon removal credits through the Climate contribution API to offset the environmental impact of our operations" \
   --method POST \
   --data '{"amount":100}' \
   --header "X-Custom: value"
 ```
+
+In agent output mode, approval is the only continuation boundary. The first call returns an approval URL and another `mpp pay` command containing `--spend-request-id`; run that command after approval. No separate identity or spend-request command is needed. SPTs are one-time-use, so a failed paid request requires a new spend request.
 
 Use `mpp decode` to validate a raw `WWW-Authenticate` header and extract the `network_id` needed for `shared_payment_token` spend requests:
 

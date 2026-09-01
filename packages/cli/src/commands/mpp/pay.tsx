@@ -27,6 +27,15 @@ export type PayResult = {
   body: string;
 };
 
+export interface MppIdentityHeaders {
+  attestation?: string;
+  identityPresentation?: string;
+}
+
+export interface MppIdentityProvider {
+  prepare(response: Response): Promise<MppIdentityHeaders | undefined>;
+}
+
 export function buildHeaders(
   data: string | undefined,
   headers: string[] | undefined,
@@ -70,6 +79,28 @@ function setPaymentCredential(
   headers.set(DEFAULT_CREDENTIAL_HEADER, credential);
 }
 
+function setIdentityHeaders(
+  headers: Headers,
+  identity: MppIdentityHeaders | undefined,
+): void {
+  if (!identity) return;
+  if (identity.attestation) {
+    headers.set('Authorization', identity.attestation);
+  }
+  if (identity.identityPresentation) {
+    headers.set('Identity-Presentation', identity.identityPresentation);
+  }
+}
+
+export function buildMppHeaders(
+  data: string | undefined,
+  headers: string[] | undefined,
+  identity: MppIdentityHeaders | undefined,
+): Headers {
+  const result = new Headers(buildHeaders(data, headers));
+  setIdentityHeaders(result, identity);
+  return result;
+}
 function createStripePaymentClient(spt: string) {
   const stripeCharge = Method.toClient(StripeMethods.charge, {
     async createCredential({ challenge }) {
@@ -117,6 +148,138 @@ function createStripePaymentClient(spt: string) {
   });
 }
 
+const MAX_IDENTITY_ROUNDS = 3;
+
+export interface MppPaymentProbe {
+  response: Response;
+  identityRequired: boolean;
+}
+
+async function fetchMerchant(
+  url: string,
+  method: string,
+  data: string | undefined,
+  headers: Headers,
+): Promise<Response> {
+  return fetch(url, {
+    method,
+    body: data,
+    headers,
+    // Authorization, identity, and payment credentials must never cross an
+    // origin boundary through Fetch's default redirect behavior.
+    redirect: 'manual',
+  });
+}
+
+/** Sends the unpaid request, satisfying any identity challenges before 402. */
+export async function probeMppPayment(
+  url: string,
+  method: string | undefined,
+  data: string | undefined,
+  headers: string[] | undefined,
+  identityProvider?: MppIdentityProvider,
+): Promise<MppPaymentProbe> {
+  const httpMethod = method ?? (data !== undefined ? 'POST' : 'GET');
+  let identity: MppIdentityHeaders | undefined;
+  let identityRequired = false;
+
+  for (let round = 0; round <= MAX_IDENTITY_ROUNDS; round++) {
+    const response = await fetchMerchant(
+      url,
+      httpMethod,
+      data,
+      buildMppHeaders(data, headers, identity),
+    );
+    if (response.status !== 401 || !identityProvider) {
+      return { response, identityRequired };
+    }
+
+    const prepared = await identityProvider.prepare(response);
+    if (!prepared) return { response, identityRequired };
+    if (round === MAX_IDENTITY_ROUNDS) {
+      throw new Error(
+        'The merchant kept challenging after the maximum number of identity retries.',
+      );
+    }
+    identity = prepared;
+    identityRequired = true;
+  }
+
+  throw new Error('Identity negotiation did not produce a response');
+}
+
+export function paymentChallengeHeader(
+  response: Response,
+  identityRequired: boolean,
+): PaymentCredentialHeader {
+  if (!response.headers.has('www-authenticate')) {
+    throw new Error('URL returned 402 but no WWW-Authenticate header');
+  }
+  const challenge = getStripeChargeChallengeFromResponse(response);
+  const credentialHeader = canonicalizeCredentialHeader(challenge.header);
+  if (identityRequired && credentialHeader !== PAYMENT_AUTHORIZATION_HEADER) {
+    throw new Error(
+      'Identity-aware MPP requires the payment challenge to advertise header="Payment-Authorization" so the Link attestation can remain in Authorization.',
+    );
+  }
+  return credentialHeader;
+}
+
+async function payChallengeWithSpt(
+  url: string,
+  spt: string,
+  method: string | undefined,
+  data: string | undefined,
+  headers: string[] | undefined,
+  probe: MppPaymentProbe,
+  identityProvider?: MppIdentityProvider,
+): Promise<PayResult> {
+  const credentialHeader = paymentChallengeHeader(
+    probe.response,
+    probe.identityRequired,
+  );
+  const credential = await createStripePaymentClient(spt).createCredential(
+    probe.response,
+  );
+
+  let finalIdentity: MppIdentityHeaders | undefined;
+  const httpMethod = method ?? (data !== undefined ? 'POST' : 'GET');
+  if (probe.identityRequired) {
+    if (!identityProvider) {
+      throw new Error(
+        'Identity was required but no identity provider is available',
+      );
+    }
+
+    // The presentation used to reach 402 has already spent its nonce. Ask for
+    // a fresh challenge, but do not send the resulting presentation until the
+    // payment credential is attached to the final request.
+    const freshChallenge = await fetchMerchant(
+      url,
+      httpMethod,
+      data,
+      buildMppHeaders(data, headers, undefined),
+    );
+    if (freshChallenge.status === 401) {
+      finalIdentity = await identityProvider.prepare(freshChallenge);
+      if (!finalIdentity) {
+        throw new Error(
+          'The merchant required identity but did not return a supported identity challenge for the paid request.',
+        );
+      }
+    } else if (freshChallenge.status !== 402) {
+      // Do not send a one-time payment credential after a redirect, transient
+      // failure, or successful response that changed the request lifecycle.
+      return readPayResult(freshChallenge);
+    }
+  }
+
+  const finalHeaders = buildMppHeaders(data, headers, finalIdentity);
+  setPaymentCredential(finalHeaders, credentialHeader, credential);
+  const response = await fetchMerchant(url, httpMethod, data, finalHeaders);
+  return readPayResult(response);
+}
+
 export interface MppPayFullFlowOptions {
   url: string;
   method: string | undefined;
@@ -128,6 +291,7 @@ export interface MppPayFullFlowOptions {
   test: boolean;
   repository: ISpendRequestResource;
   paymentMethodsFactory: () => IPaymentMethodsResource;
+  identityProvider?: MppIdentityProvider;
   onStep?: (step: Step) => void;
   onApprovalUrl?: (url: string) => void;
 }
@@ -139,6 +303,7 @@ export async function runMppPayWithSpendRequest(
   data: string | undefined,
   headers: string[] | undefined,
   repository: ISpendRequestResource,
+  identityProvider?: MppIdentityProvider,
 ): Promise<PayResult> {
   const spendRequest = await repository.retrieve(spendRequestId, {
     include: ['shared_payment_token'],
@@ -168,6 +333,7 @@ export async function runMppPayWithSpendRequest(
     method,
     data,
     headers,
+    identityProvider,
   );
 }
 
@@ -177,40 +343,25 @@ export async function payWithSpt(
   method: string | undefined,
   data: string | undefined,
   headers: string[] | undefined,
+  identityProvider?: MppIdentityProvider,
 ): Promise<PayResult> {
-  const httpMethod = method ?? (data !== undefined ? 'POST' : 'GET');
-  const requestHeaders = buildHeaders(data, headers);
-
-  const initialResponse = await fetch(url, {
-    method: httpMethod,
-    body: data,
-    headers: requestHeaders,
-  });
-
-  if (initialResponse.status !== 402) {
-    return readPayResult(initialResponse);
-  }
-
-  const wwwAuthenticate = initialResponse.headers.get('www-authenticate');
-  if (!wwwAuthenticate) {
-    throw new Error('URL returned 402 but no WWW-Authenticate header');
-  }
-
-  const challenge = getStripeChargeChallengeFromResponse(initialResponse);
-  const credentialHeader = canonicalizeCredentialHeader(challenge.header);
-  const credential =
-    await createStripePaymentClient(spt).createCredential(initialResponse);
-
-  const retryHeaders = new Headers(requestHeaders);
-  setPaymentCredential(retryHeaders, credentialHeader, credential);
-
-  const retryResponse = await fetch(url, {
-    method: httpMethod,
-    body: data,
-    headers: retryHeaders,
-  });
-
-  return readPayResult(retryResponse);
+  const probe = await probeMppPayment(
+    url,
+    method,
+    data,
+    headers,
+    identityProvider,
+  );
+  if (probe.response.status !== 402) return readPayResult(probe.response);
+  return payChallengeWithSpt(
+    url,
+    spt,
+    method,
+    data,
+    headers,
+    probe,
+    identityProvider,
+  );
 }
 
 export async function runMppPayFullFlow(
@@ -227,20 +378,21 @@ export async function runMppPayFullFlow(
     test,
     repository,
     paymentMethodsFactory,
+    identityProvider,
     onStep,
     onApprovalUrl,
   } = opts;
 
-  const httpMethod = method ?? (data !== undefined ? 'POST' : 'GET');
-  const requestHeaders = buildHeaders(data, headers);
-
   // 1. Probe URL
   onStep?.('probing');
-  const probeResponse = await fetch(url, {
-    method: httpMethod,
-    body: data,
-    headers: requestHeaders,
-  });
+  const probe = await probeMppPayment(
+    url,
+    method,
+    data,
+    headers,
+    identityProvider,
+  );
+  const probeResponse = probe.response;
 
   if (probeResponse.status !== 402) {
     return readPayResult(probeResponse);
@@ -251,6 +403,7 @@ export async function runMppPayFullFlow(
   if (!wwwAuth) {
     throw new Error('URL returned 402 but no WWW-Authenticate header');
   }
+  paymentChallengeHeader(probeResponse, probe.identityRequired);
 
   const decoded = decodeStripeChallenge(wwwAuth);
   const networkId = decoded.network_id;
@@ -323,12 +476,16 @@ export async function runMppPayFullFlow(
 
   // 7. Pay
   onStep?.('submitting');
+  // Approval can outlive the original payment challenge. Probe again so the
+  // one-time SPT is bound to a current challenge, then negotiate a fresh
+  // single-use identity presentation for the paid request.
   return payWithSpt(
     url,
     withSpt.shared_payment_token.id,
     method,
     data,
     headers,
+    identityProvider,
   );
 }
 
@@ -352,6 +509,7 @@ export function MppPay({
   test,
   repository,
   paymentMethodsFactory,
+  identityProvider,
   onComplete,
 }: {
   url: string;
@@ -365,6 +523,7 @@ export function MppPay({
   test?: boolean;
   repository: ISpendRequestResource;
   paymentMethodsFactory: () => IPaymentMethodsResource;
+  identityProvider?: MppIdentityProvider;
   onComplete: (result: PayResult | null) => void;
 }) {
   const [step, setStep] = useState<Step>(
@@ -388,6 +547,7 @@ export function MppPay({
             data,
             headers,
             repository,
+            identityProvider,
           );
         } else {
           if (!context) {
@@ -406,6 +566,7 @@ export function MppPay({
             test: test ?? false,
             repository,
             paymentMethodsFactory,
+            identityProvider,
             onStep: setStep,
             onApprovalUrl: (u) => setApprovalUrl(u),
           });
@@ -431,6 +592,7 @@ export function MppPay({
     test,
     repository,
     paymentMethodsFactory,
+    identityProvider,
     onComplete,
   ]);
 
