@@ -23,8 +23,10 @@ import type {
 import { z } from 'zod';
 
 const TOKEN_TYPE_BLIND_RSA = 0x0002;
-const CONTENT_TYPE_TOKEN_REQUEST = 'application/private-token-request';
-const CONTENT_TYPE_TOKEN_RESPONSE = 'application/private-token-response';
+const CONTENT_TYPE_TOKEN_REQUEST =
+  'application/private-token-generic-batch-request';
+const CONTENT_TYPE_TOKEN_RESPONSE =
+  'application/private-token-generic-batch-response';
 
 const issuerMetadataSchema = z.looseObject({
   issuer: z.string(),
@@ -46,6 +48,51 @@ function base64ToBytes(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(normalized, 'base64'));
 }
 
+function minQuicVarintLength(value: number): 1 | 2 | 4 | 8 {
+  if (value < 2 ** 6) return 1;
+  if (value < 2 ** 14) return 2;
+  if (value < 2 ** 30) return 4;
+  return 8;
+}
+
+function encodeQuicVarint(value: number): Buffer {
+  if (!Number.isSafeInteger(value) || value < 0 || value >= 2 ** 62) {
+    throw new Error(`Cannot encode ${value} as a QUIC variable-length integer`);
+  }
+  const length = minQuicVarintLength(value);
+  const encoded = Buffer.alloc(length);
+  let remaining = BigInt(value);
+  for (let index = length - 1; index >= 0; index--) {
+    encoded[index] = Number(remaining & 0xffn);
+    remaining >>= 8n;
+  }
+  encoded[0] = encoded[0]! | (Math.log2(length) << 6);
+  return encoded;
+}
+
+function readQuicVarint(
+  body: Buffer,
+  offset = 0,
+): { value: number; length: number } {
+  const first = body[offset];
+  if (first === undefined) throw new Error('QUIC varint is absent');
+  const length = 1 << (first >> 6);
+  if (body.length < offset + length) throw new Error('QUIC varint is truncated');
+
+  let value = BigInt(first & 0x3f);
+  for (let index = 1; index < length; index++) {
+    value = (value << 8n) | BigInt(body[offset + index]!);
+  }
+  if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error('QUIC varint exceeds the JavaScript safe integer range');
+  }
+  const numeric = Number(value);
+  if (minQuicVarintLength(numeric) !== length) {
+    throw new Error('QUIC varint is not minimally encoded');
+  }
+  return { value: numeric, length };
+}
+
 function encodeBatchTokenRequest(
   blindedMessages: Uint8Array[],
   truncatedTokenKeyId: number,
@@ -59,9 +106,7 @@ function encodeBatchTokenRequest(
   });
 
   const vector = Buffer.concat(entries);
-  const prefix = Buffer.alloc(2);
-  prefix.writeUInt16BE(vector.length, 0);
-  return Buffer.concat([prefix, vector]);
+  return Buffer.concat([encodeQuicVarint(vector.length), vector]);
 }
 
 function decodeBatchTokenResponse(
@@ -69,39 +114,50 @@ function decodeBatchTokenResponse(
   elementSize: number,
   expectedCount: number,
 ): string[] {
-  if (body.length < 2) {
+  const prefix = readQuicVarint(body);
+  const vector = body.subarray(prefix.length);
+  if (vector.length !== prefix.value) {
     throw new Error(
-      `BatchTokenResponse too short: ${body.length} bytes (expected at least 2)`,
+      `BatchTokenResponse length prefix says ${prefix.value} bytes but ${vector.length} bytes follow`,
     );
   }
+  if (vector.length === 0) throw new Error('BatchTokenResponse vector is empty');
 
-  const vectorLength = body.readUInt16BE(0);
-  const vector = body.subarray(2);
-  if (vector.length !== vectorLength) {
-    throw new Error(
-      `BatchTokenResponse length prefix says ${vectorLength} bytes but ${vector.length} bytes follow`,
-    );
-  }
-  if (vectorLength === 0 || vectorLength % elementSize !== 0) {
-    throw new Error(
-      `BatchTokenResponse vector of ${vectorLength} bytes is not a multiple of the ${elementSize}-byte element size`,
-    );
-  }
-
-  const count = vectorLength / elementSize;
-  if (count !== expectedCount) {
-    throw new Error(
-      `Issuer returned ${count} blind signatures for ${expectedCount} token requests`,
-    );
-  }
-
-  return Array.from({ length: count }, (_, index) =>
-    base64urlEncode(
-      new Uint8Array(
-        vector.subarray(index * elementSize, (index + 1) * elementSize),
+  const signatures: string[] = [];
+  let offset = 0;
+  while (offset < vector.length) {
+    const present = vector[offset++];
+    if (present === 0) {
+      throw new Error(
+        `Issuer refused token request at index ${signatures.length}`,
+      );
+    }
+    if (present !== 1) {
+      throw new Error(`Invalid OptionalTokenResponse presence byte ${present}`);
+    }
+    if (offset + 2 + elementSize > vector.length) {
+      throw new Error('Present GenericTokenResponse is truncated');
+    }
+    const tokenType = vector.readUInt16BE(offset);
+    offset += 2;
+    if (tokenType !== TOKEN_TYPE_BLIND_RSA) {
+      throw new Error(
+        `GenericTokenResponse has unsupported token type 0x${tokenType.toString(16).padStart(4, '0')}`,
+      );
+    }
+    signatures.push(
+      base64urlEncode(
+        new Uint8Array(vector.subarray(offset, offset + elementSize)),
       ),
-    ),
-  );
+    );
+    offset += elementSize;
+  }
+  if (signatures.length !== expectedCount) {
+    throw new Error(
+      `Issuer returned ${signatures.length} token responses for ${expectedCount} token requests`,
+    );
+  }
+  return signatures;
 }
 
 function parseIssuerOrigin(issuer: string): URL {

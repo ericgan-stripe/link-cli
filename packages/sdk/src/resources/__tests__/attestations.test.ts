@@ -121,13 +121,60 @@ describe('AttestationsResource', () => {
     expect(getAccessToken).toHaveBeenNthCalledWith(2, { forceRefresh: true });
     expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
       headers: expect.objectContaining({
+        Accept: 'application/private-token-generic-batch-response',
         Authorization: 'Bearer initial-token',
+        'Content-Type': 'application/private-token-generic-batch-request',
       }),
     });
+    const issuanceBody = fetchMock.mock.calls[2]?.[1]?.body;
+    expect(issuanceBody).toBeInstanceOf(ArrayBuffer);
+    const encodedRequest = Buffer.from(issuanceBody as ArrayBuffer);
+    expect(encodedRequest.subarray(0, 2)).toEqual(Buffer.from([0x40, 0x83]));
+    expect(encodedRequest.subarray(2, 4)).toEqual(Buffer.from([0x00, 0x02]));
+    expect(encodedRequest).toHaveLength(2 + 3 + 128);
     expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
       headers: expect.objectContaining({
         Authorization: 'Bearer refreshed-token',
       }),
     });
+  });
+
+  it('decodes GenericBatchTokenResponse optional entries', async () => {
+    const { publicKey } = generateKeyPairSync('rsa', {
+      modulusLength: 1024,
+      publicExponent: 0x10001,
+    });
+    const tokenKey = publicKey
+      .export({ format: 'der', type: 'spki' })
+      .toString('base64');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = input.toString();
+      if (url.endsWith('/.well-known/aap-issuer')) {
+        return jsonResponse({
+          issuer: 'https://issuer.example',
+          token_issuance_endpoint: 'https://issuer.example/issue',
+          token_keys: 'https://issuer.example/token-keys',
+        });
+      }
+      if (url.endsWith('/token-keys')) {
+        return jsonResponse({
+          'token-keys': [{ 'token-type': 0x0002, 'token-key': tokenKey }],
+        });
+      }
+      return new Response(Buffer.from([0x01, 0x00]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/private-token-generic-batch-response',
+        },
+      });
+    });
+    const resource = new AttestationsResource({
+      accessToken: 'secret',
+      fetch: fetchMock,
+    });
+
+    await expect(
+      resource.request({ issuer: 'https://issuer.example', count: 1 }),
+    ).rejects.toThrow('Issuer refused token request at index 0');
   });
 });
