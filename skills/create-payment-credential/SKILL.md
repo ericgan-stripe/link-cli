@@ -114,7 +114,7 @@ If the user is already authenticated but you need broader access (an additional 
 
 **CRITICAL:** Before calling `spend-request create` you must complete this checklist:
 1. Understand how the merchant accepts payments (cards or machine payments or other). **Do NOT** default to `card` credential type. The merchant determines the credential type — you cannot know it without checking first. Skipping this step will produce a spend request with the wrong credential type.
-2. Have the final total amount needed. Inclusive of any shipping costs, taxes or other costs. Skipping this step will produce a spend request that does not cover the full amount needed, and will be rejected.
+2. Calculate the **final checkout total** before creating the spend request. Include the items, discounts, tax, shipping, tips, and any other fees. The requested amount is a hard limit: if the final charge is even one cent higher, the payment will fail. Do not request the subtotal or estimate the total; advance checkout far enough to determine the final amount and request that exact amount from the user.
 3. Clear context and understanding of what the user is purchasing. Be sure to know sizes, colors, shipping options, etc. Skipping this step will produce a spend request that the user does not recognize or understand.
 
 **Determine how the merchant accepts payment:**

@@ -45,15 +45,17 @@ connected Link in Cursor — say so and stop, rather than retrying.
 
 ### Step 2: Price the purchase and read the merchant
 
-Do this thoroughly **before** raising a card. The amount you ask for is the
-exact amount that gets charged, and a card issued for less than the cart total
-is declined at checkout. Changing your mind means asking the user all over
-again.
+Do this thoroughly **before** raising a card. The requested amount is a hard
+limit: if the final charge is even one cent higher, the payment will fail.
+There is no automatic buffer for tax, shipping, or other fees. Changing the
+amount means asking the user all over again.
 
 1. Open the merchant page and read how it accepts payment. A normal
    credit-card checkout form is the ordinary case, and the issued card works
    there.
-2. Get the **final** total: items, tax, shipping, and any fees.
+2. Advance checkout far enough to calculate the **final** total: items,
+   discounts, tax, shipping, tips, and any other fees. Do not request the
+   subtotal or estimate the total.
 3. Know exactly what is being bought — size, colour, delivery option — so the
    line items you show the user match their cart.
 
