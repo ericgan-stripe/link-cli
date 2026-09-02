@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { saveIssuedTokens } from '../attestations/pool';
+import { remainingCount, saveIssuedTokens } from '../attestations/pool';
 import { base64urlPad } from './private-token';
 import { runIdentityRequest } from './run';
 
@@ -114,5 +114,98 @@ describe('runIdentityRequest PrivateToken retry', () => {
     expect((retry.headers as Record<string, string>).Signature).toBe(
       'agent=:signature:',
     );
+  });
+
+  it('prepares an attestation header without sending the retry', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'link-cli-request-'));
+    directories.push(directory);
+    const poolFile = join(directory, 'aat-pool.json');
+    const challenge = encodeStableTokenChallenge('api.link.com');
+    const tokenKey = Buffer.alloc(32, 7);
+    const digest = createHash('sha256').update(challenge).digest();
+    const tokenKeyId = createHash('sha256').update(tokenKey).digest();
+    const token = fakeToken(digest, tokenKeyId);
+    saveIssuedTokens(poolFile, {
+      issuer: 'https://api.link.com',
+      token_key_id: tokenKeyId.toString('base64url'),
+      tokens: [token],
+    });
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response('attestation required', {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': `PrivateToken challenge="${base64urlPad(challenge)}", token-key="${base64urlPad(tokenKey)}"`,
+        },
+      }),
+    );
+
+    const result = await runIdentityRequest({
+      url: 'http://localhost:3000/api/verified/contribute',
+      header: [],
+      prepare: true,
+      keyFile: join(directory, 'holder.jwk'),
+      keyType: 'ed25519',
+      poolFile,
+      createCredentialsResource: () => {
+        throw new Error('should not issue a credential');
+      },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sanitizeDeep: (value) => value,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        status: 401,
+        prepared_headers: {
+          attestation: expect.stringMatching(/^PrivateToken token="/),
+        },
+      },
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it('reuses a supplied attestation when preparing a fresh presentation', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'link-cli-request-'));
+    directories.push(directory);
+    const poolFile = join(directory, 'aat-pool.json');
+    const challenge = encodeStableTokenChallenge('api.link.com');
+    const tokenKey = Buffer.alloc(32, 5);
+    const digest = createHash('sha256').update(challenge).digest();
+    const tokenKeyId = createHash('sha256').update(tokenKey).digest();
+    saveIssuedTokens(poolFile, {
+      issuer: 'https://api.link.com',
+      token_key_id: tokenKeyId.toString('base64url'),
+      tokens: [fakeToken(digest, tokenKeyId)],
+    });
+    const supplied = 'PrivateToken token="already-prepared"';
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response('attestation required', {
+        status: 401,
+        headers: {
+          'WWW-Authenticate': `PrivateToken challenge="${base64urlPad(challenge)}", token-key="${base64urlPad(tokenKey)}"`,
+        },
+      }),
+    );
+
+    const result = await runIdentityRequest({
+      url: 'http://localhost:3000/api/verified/contribute',
+      header: [`Authorization: ${supplied}`],
+      prepare: true,
+      keyFile: join(directory, 'holder.jwk'),
+      keyType: 'ed25519',
+      poolFile,
+      createCredentialsResource: () => {
+        throw new Error('should not issue a credential');
+      },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sanitizeDeep: (value) => value,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { prepared_headers: { attestation: supplied } },
+    });
+    expect(remainingCount(poolFile)).toBe(1);
   });
 });

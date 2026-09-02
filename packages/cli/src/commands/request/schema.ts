@@ -1,7 +1,6 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { z } from 'incur';
 import { DEFAULT_AAT_POOL_PATH } from '../attestations/pool';
+import { DEFAULT_HOLDER_KEY_PATH } from '../credentials/holder-key';
 
 export const requestArgs = z.object({
   url: z
@@ -38,7 +37,7 @@ export const requestOptions = z.object({
     .describe('Request header in "Name: Value" format (repeatable)'),
   keyFile: z
     .string()
-    .default(join(homedir(), '.link', 'holder-key.jwk'))
+    .default(DEFAULT_HOLDER_KEY_PATH)
     .describe(
       'Path to a local key file. Created if missing. Reuse the same file used by identity credentials get.',
     ),

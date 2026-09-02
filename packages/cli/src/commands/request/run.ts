@@ -51,6 +51,10 @@ export type IdentityRequestResult = {
     credential_expires_at: string;
     holder_key: string;
   };
+  prepared_headers?: {
+    attestation?: string;
+    identity_presentation?: string;
+  };
   response: unknown;
 };
 
@@ -65,17 +69,29 @@ function parseBody(
   }
 }
 
+function requestHeader(
+  headers: Record<string, string>,
+  name: string,
+): string | undefined {
+  const entry = Object.entries(headers).find(
+    ([candidate]) => candidate.toLowerCase() === name.toLowerCase(),
+  );
+  return entry?.[1];
+}
+
 export async function runIdentityRequest(options: {
   url: string;
   claims?: string;
   method?: string;
   data?: string;
   header: string[];
+  prepare?: boolean;
   keyFile: string;
   keyType: HolderKeyType;
   poolFile: string;
   createCredentialsResource: () => ICredentialsResource;
-  createWebBotAuthResource: () => IWebBotAuthResource;
+  createWebBotAuthResource?: () => IWebBotAuthResource;
+  initialResponse?: { response: Response; body: string };
   fetchImpl?: typeof fetch;
   sanitizeDeep: (value: unknown) => unknown;
 }): Promise<
@@ -88,6 +104,7 @@ export async function runIdentityRequest(options: {
     method,
     data,
     header,
+    prepare = false,
     keyFile,
     keyType,
     poolFile,
@@ -158,8 +175,9 @@ export async function runIdentityRequest(options: {
   let identityRequired = false;
 
   for (let round = 0; round <= MAX_CHALLENGE_ROUNDS; round++) {
-    const response = await send(headers);
-    const body = await response.text();
+    const supplied = round === 0 ? options.initialResponse : undefined;
+    const response = supplied?.response ?? (await send(headers));
+    const body = supplied?.body ?? (await response.text());
 
     let privateTokenChallenges: ReturnType<typeof parsePrivateTokenChallenges>;
     let claimsChallenge: ReturnType<typeof parseClaimsChallenge>;
@@ -207,43 +225,51 @@ export async function runIdentityRequest(options: {
 
     if (privateTokenChallenges.length > 0) {
       attestationRequired = true;
-      const spent =
-        privateTokenChallenges
-          .map((challenge) =>
-            takeMatchingToken(poolFile, {
-              challengeDigest: challenge.challengeDigest,
-              ...(challenge.tokenKeyId
-                ? { tokenKeyId: challenge.tokenKeyId }
-                : {}),
-            }),
-          )
-          .find((match) => match !== null) ?? null;
-      if (!spent) {
-        const empty = remainingCount(poolFile) === 0;
-        return {
-          ok: false,
-          error: empty
-            ? {
-                code: 'AAT_POOL_EMPTY',
-                message:
-                  'No attestation tokens in the local pool. Run "link-cli identity attestations request --count 10" first.',
-              }
-            : {
-                code: 'AAT_NO_MATCH',
-                message:
-                  "The verifier's PrivateToken challenge does not match any token in the local pool.",
-              },
+      const suppliedAttestation = requestHeader(
+        originalHeaders,
+        'authorization',
+      );
+      if (suppliedAttestation && /^PrivateToken\s/i.test(suppliedAttestation)) {
+        setRequestHeader(nextHeaders, 'Authorization', suppliedAttestation);
+      } else {
+        const spent =
+          privateTokenChallenges
+            .map((challenge) =>
+              takeMatchingToken(poolFile, {
+                challengeDigest: challenge.challengeDigest,
+                ...(challenge.tokenKeyId
+                  ? { tokenKeyId: challenge.tokenKeyId }
+                  : {}),
+              }),
+            )
+            .find((match) => match !== null) ?? null;
+        if (!spent) {
+          const empty = remainingCount(poolFile) === 0;
+          return {
+            ok: false,
+            error: empty
+              ? {
+                  code: 'AAT_POOL_EMPTY',
+                  message:
+                    'No attestation tokens in the local pool. Run "link-cli identity attestations request --count 10" first.',
+                }
+              : {
+                  code: 'AAT_NO_MATCH',
+                  message:
+                    "The verifier's PrivateToken challenge does not match any token in the local pool.",
+                },
+          };
+        }
+        setRequestHeader(
+          nextHeaders,
+          'Authorization',
+          authorizationHeader(spent.token),
+        );
+        attestation = {
+          issuer: spent.issuer,
+          remaining_pool: spent.remaining,
         };
       }
-      setRequestHeader(
-        nextHeaders,
-        'Authorization',
-        authorizationHeader(spent.token),
-      );
-      attestation = {
-        issuer: spent.issuer,
-        remaining_pool: spent.remaining,
-      };
     }
 
     if (claimsChallenge) {
@@ -370,6 +396,37 @@ export async function runIdentityRequest(options: {
       };
     }
 
+    if (prepare) {
+      return {
+        ok: true,
+        value: {
+          url,
+          status: response.status,
+          attestation_required: attestationRequired,
+          identity_required: identityRequired,
+          ...(lastChallenge ? { challenge: lastChallenge } : {}),
+          ...(attestation ? { attestation } : {}),
+          ...(identity ? { identity } : {}),
+          prepared_headers: {
+            ...(nextHeaders.Authorization
+              ? { attestation: nextHeaders.Authorization }
+              : {}),
+            ...(nextHeaders['Identity-Presentation']
+              ? {
+                  identity_presentation: nextHeaders['Identity-Presentation'],
+                }
+              : {}),
+          },
+          response: parseBody(body, sanitizeDeep),
+        },
+      };
+    }
+
+    if (!createWebBotAuthResource) {
+      throw new Error(
+        'A Web Bot Auth resource is required when sending an identity request',
+      );
+    }
     if (data !== undefined) {
       setRequestHeader(nextHeaders, 'Content-Digest', contentDigest(data));
     }
