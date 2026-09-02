@@ -1,11 +1,10 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { z } from 'incur';
+import { DEFAULT_HOLDER_KEY_PATH } from './holder-key';
 
 export const getOptions = z.object({
   keyFile: z
     .string()
-    .default(join(homedir(), '.link', 'holder-key.jwk'))
+    .default(DEFAULT_HOLDER_KEY_PATH)
     .describe(
       'Path to a local key file. Created if missing. Reuse the same file when you present this user info later.',
     ),

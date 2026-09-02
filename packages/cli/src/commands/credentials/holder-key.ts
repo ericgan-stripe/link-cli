@@ -4,8 +4,15 @@ import {
   generateKeyPairSync,
 } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 import type { HolderPublicJwk } from '@stripe/link-sdk';
+
+export const DEFAULT_HOLDER_KEY_PATH = join(
+  homedir(),
+  '.link',
+  'holder-key.jwk',
+);
 
 /**
  * Holder key types accepted by the issuer in `cnf.jwk`:
