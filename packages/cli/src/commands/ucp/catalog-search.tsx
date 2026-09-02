@@ -163,7 +163,7 @@ export const CatalogSearch: React.FC<CatalogSearchProps> = ({
 
   return (
     <Box flexDirection="column">
-      <Text bold>
+      <Text bold color="white">
         Catalog results{' '}
         <Text dimColor>
           ({data?.total_count ?? products.length}
@@ -171,7 +171,7 @@ export const CatalogSearch: React.FC<CatalogSearchProps> = ({
         </Text>
       </Text>
       <Box flexDirection="column" marginTop={1} paddingX={2}>
-        <Text bold>
+        <Text bold color="white">
           {formatRow(
             {
               sku: 'SKU',
