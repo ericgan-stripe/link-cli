@@ -1,5 +1,12 @@
 # @stripe/link-cli
 
+## 0.16.1
+
+### Patch Changes
+
+- f766173: Tell agents to prefill known email addresses in Link OAuth and spend-request step-up URLs.
+- bd20966: Fix `spend-request create --approve` showing the approval-waiting screen and QR code even though the request is already approved.
+
 ## 0.16.0
 
 ### Minor Changes
