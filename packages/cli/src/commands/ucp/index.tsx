@@ -21,14 +21,6 @@ import {
   checkoutCreateOptions,
 } from './schema';
 
-const SEARCH_FILTER_KEYS = [
-  'brand',
-  'category',
-  'color',
-  'size',
-  'material',
-] as const;
-
 function parseUcpLineItem(item: unknown): UcpLineItem {
   const raw =
     typeof item === 'string'
@@ -56,22 +48,17 @@ export function createUcpCli(
 
   catalog.command('search', {
     description:
-      'Search the Universal Commerce Protocol catalog. Requires a query or at least one filter (brand, category, color, size, material, profile-id, sku). Use --test for synthetic demo results.',
+      'Search the Universal Commerce Protocol catalog. --query is always required. Use --test for synthetic demo results.',
     options: catalogSearchOptions,
     outputPolicy: 'agent-only' as const,
     middleware: [requireAuth(authStorage, envAccessToken)],
     async run(c) {
       const opts = c.options;
 
-      const hasFilter =
-        SEARCH_FILTER_KEYS.some((key) => (opts[key] as string[]).length > 0) ||
-        opts.networkId !== undefined ||
-        opts.sku !== undefined;
-      if (!opts.query && !hasFilter) {
+      if (!opts.query) {
         return c.error({
           code: 'INVALID_INPUT',
-          message:
-            'query is required, or at least one of: brand, category, color, size, material, network-id, sku',
+          message: 'query is required',
         });
       }
 

@@ -4,10 +4,8 @@ export const catalogSearchOptions = z.object({
   query: z
     .string()
     .max(200)
-    .optional()
-    .describe(
-      'Free-text search query (max 200 chars). Required unless at least one filter is given (brand, category, color, size, material, network-id, sku)',
-    ),
+    .nonempty()
+    .describe('Free-text search query (required, max 200 chars)'),
   networkId: z
     .string()
     .optional()

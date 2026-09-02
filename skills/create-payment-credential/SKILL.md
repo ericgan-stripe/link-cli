@@ -314,7 +314,7 @@ Add `--test` to every command to run in **demo mode**: the endpoints return self
 
 Steps:
 
-1. **Search the catalog** for the product and capture its `sku` (and the seller's network ID — returned on each product as `profile_id`, which you pass to `--network-id` in the next step). A `query` OR at least one filter (`--brand`, `--category`, `--color`, `--size`, `--material`, `--network-id`, `--sku`) is required.
+1. **Search the catalog** for the product and capture its `sku` (and the seller's network ID — returned on each product as `profile_id`, which you pass to `--network-id` in the next step). `--query` is always required; filters such as `--brand`, `--category`, and `--network-id` can narrow the results.
 
    ```bash
    link-cli ucp catalog search --query "running shoes" --limit 5 --format json
