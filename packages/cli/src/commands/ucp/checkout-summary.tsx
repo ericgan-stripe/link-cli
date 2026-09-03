@@ -32,17 +32,23 @@ export const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
   return (
     <Box flexDirection="column" marginTop={1} paddingX={2}>
       <Text>
-        ID: <Text bold>{checkout.id}</Text>
+        ID:{' '}
+        <Text bold color="white">
+          {checkout.id}
+        </Text>
       </Text>
       {checkout.status && (
         <Text>
-          Status: <Text bold>{checkout.status}</Text>
+          Status:{' '}
+          <Text bold color="white">
+            {checkout.status}
+          </Text>
         </Text>
       )}
       {checkout.amount_total != null && (
         <Text>
           Total:{' '}
-          <Text bold>
+          <Text bold color="white">
             {formatAmount(checkout.amount_total, checkout.currency)}
           </Text>
         </Text>
@@ -50,7 +56,7 @@ export const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
       {checkout.amount_subtotal != null && (
         <Text>
           Subtotal:{' '}
-          <Text bold>
+          <Text bold color="white">
             {formatAmount(checkout.amount_subtotal, checkout.currency)}
           </Text>
         </Text>
@@ -58,12 +64,16 @@ export const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
       {shipping != null && (
         <Text>
           Shipping:{' '}
-          <Text bold>{formatAmount(shipping, checkout.currency)}</Text>
+          <Text bold color="white">
+            {formatAmount(shipping, checkout.currency)}
+          </Text>
         </Text>
       )}
       {lineItems.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold>Line Items:</Text>
+          <Text bold color="white">
+            Line Items:
+          </Text>
           {lineItems.map((item, index) => (
             <Text key={item.sku_id ?? String(index)}>
               {'  '}
@@ -77,7 +87,10 @@ export const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
       )}
       {orderStatus && (
         <Text>
-          Order: <Text bold>{orderStatus}</Text>
+          Order:{' '}
+          <Text bold color="white">
+            {orderStatus}
+          </Text>
         </Text>
       )}
       {checkout.expires_at != null && (

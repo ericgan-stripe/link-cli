@@ -2719,13 +2719,29 @@ describe('production mode', () => {
         expect(data[0].sku_id).toBe('sku_1');
       });
 
-      it('errors without a query or filter, without hitting the API', async () => {
+      it('errors when no query is provided even when a filter is provided', async () => {
+        const result = await runProdCli(
+          'ucp',
+          'catalog',
+          'search',
+          '--brand',
+          'Acme',
+          '--json',
+        );
+
+        expect(result.exitCode).toBe(1);
+        expect(requests).toHaveLength(0);
+        const output = parseJson(result.stdout) as Record<string, unknown>;
+        expect(output.code).toBe('INVALID_INPUT');   
+      });
+
+      it('errors when no query is provided', async () => {
         const result = await runProdCli('ucp', 'catalog', 'search', '--json');
 
         expect(result.exitCode).toBe(1);
         expect(requests).toHaveLength(0);
         const output = parseJson(result.stdout) as Record<string, unknown>;
-        expect(output.code).toBe('INVALID_INPUT');
+        expect(output.code).toBe('INVALID_INPUT');      
       });
     });
 
