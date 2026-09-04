@@ -2808,7 +2808,7 @@ describe('production mode', () => {
         expect(result.exitCode).toBe(1);
         expect(requests).toHaveLength(0);
         const output = parseJson(result.stdout) as Record<string, unknown>;
-        expect(output.code).toBe('INVALID_INPUT');
+        expect(output.code).toBe('VALIDATION_ERROR');
       });
 
       it('errors when no query is provided', async () => {
@@ -2817,7 +2817,7 @@ describe('production mode', () => {
         expect(result.exitCode).toBe(1);
         expect(requests).toHaveLength(0);
         const output = parseJson(result.stdout) as Record<string, unknown>;
-        expect(output.code).toBe('INVALID_INPUT');
+        expect(output.code).toBe('VALIDATION_ERROR');
       });
     });
 
