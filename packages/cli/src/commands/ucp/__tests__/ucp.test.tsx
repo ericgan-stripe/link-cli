@@ -104,7 +104,8 @@ describe('ucp catalog search component', () => {
               {
                 merchant_sku: 'CJPB158377701AZ',
                 merchant_name: 'Poemusart Inc.',
-                profile_id: 'profile_61UnURSooufCZI1dNA6UnURR8PSQ9lq8RrWwUUOkq64m',
+                profile_id:
+                  'profile_61UnURSooufCZI1dNA6UnURR8PSQ9lq8RrWwUUOkq64m',
                 price: { amount: 50, currency: 'usd' },
                 availability: { status: 'in_stock' },
               },
