@@ -219,7 +219,8 @@ export class UcpResource implements IUcpResource {
     params: CompleteUcpCheckoutParams,
   ): Promise<UcpCheckout> {
     const body: Record<string, unknown> = {
-      shared_payment_token: params.shared_payment_token,
+      spend_request_id: params.spend_request_id,
+      profile_id: params.profile_id,
     };
     if (params.test) body.test = true;
 

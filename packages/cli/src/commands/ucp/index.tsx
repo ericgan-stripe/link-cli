@@ -187,9 +187,9 @@ export function createUcpCli(
       const testFlag = opts.test ? ' --test' : '';
       return {
         ...created,
-        instruction: `Checkout ${created.id} needs payment of ${created.amount_total ?? 'the total'} ${created.currency ?? ''}. Mint a Shared Payment Token for this amount with \`spend-request create --credential-type shared_payment_token --network-id ${opts.business}\`; spend-request calls the UCP business value a network ID. Get it approved, then complete the checkout with the SPT id.`,
+        instruction: `Checkout ${created.id} needs payment of ${created.amount_total ?? 'the total'} ${created.currency ?? ''}. Create a spend request for this amount with \`spend-request create --credential-type shared_payment_token --network-id ${opts.business}\`; spend-request calls the UCP business value a network ID. Get it approved, then complete the checkout with the spend request id and the same business.`,
         _next: {
-          command: `ucp checkout complete ${created.id} --shared-payment-token <spt_id>${testFlag}`,
+          command: `ucp checkout complete ${created.id} --spend-request-id <spend_request_id> --business ${opts.business}${testFlag}`,
           until: 'checkout status becomes completed',
         },
       };
@@ -198,7 +198,7 @@ export function createUcpCli(
 
   checkout.command('complete', {
     description:
-      'Complete a UCP checkout session by confirming it with an approved Shared Payment Token.',
+      'Complete a UCP checkout session with an approved spend request for the same business profile.',
     args: z.object({
       id: z.string().describe('Checkout session ID'),
     }),
@@ -208,7 +208,8 @@ export function createUcpCli(
     async run(c) {
       const id = c.args.id;
       const params = {
-        shared_payment_token: c.options.sharedPaymentToken,
+        spend_request_id: c.options.spendRequestId,
+        profile_id: c.options.business,
         test: c.options.test || undefined,
       };
 

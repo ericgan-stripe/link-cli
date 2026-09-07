@@ -2854,8 +2854,8 @@ describe('production mode', () => {
         expect(output.id).toBe('dcs_1');
         expect(output.instruction).toContain('--network-id np_1');
         // Agent mode includes a _next hint to complete the checkout.
-        expect((output._next as Record<string, unknown>).command).toContain(
-          'ucp checkout complete dcs_1',
+        expect((output._next as Record<string, unknown>).command).toBe(
+          'ucp checkout complete dcs_1 --spend-request-id <spend_request_id> --business np_1',
         );
       });
 
@@ -2914,7 +2914,7 @@ describe('production mode', () => {
     });
 
     describe('checkout complete', () => {
-      it('POSTs the shared payment token to the confirm path', async () => {
+      it('POSTs the spend request and profile IDs to the confirm path', async () => {
         setNextResponse(200, {
           id: 'dcs_1',
           status: 'completed',
@@ -2926,15 +2926,20 @@ describe('production mode', () => {
           'checkout',
           'complete',
           'dcs_1',
-          '--shared-payment-token',
-          'spt_1',
+          '--spend-request-id',
+          'lsrq_1',
+          '--business',
+          'np_1',
           '--json',
         );
 
         expect(result.exitCode).toBe(0);
         expect(lastRequest.method).toBe('POST');
         expect(lastRequest.url).toBe('/ucp/checkout/dcs_1/complete');
-        expect(JSON.parse(lastRequest.body).shared_payment_token).toBe('spt_1');
+        expect(JSON.parse(lastRequest.body)).toEqual({
+          spend_request_id: 'lsrq_1',
+          profile_id: 'np_1',
+        });
 
         const output = parseJson(result.stdout) as Record<string, unknown>;
         expect(output.status).toBe('completed');
@@ -2950,14 +2955,46 @@ describe('production mode', () => {
           'checkout',
           'complete',
           'dcs_1',
-          '--shared-payment-token',
-          'spt_1',
+          '--spend-request-id',
+          'lsrq_1',
+          '--business',
+          'np_1',
           '--json',
         );
 
         expect(result.exitCode).toBe(1);
         const combined = result.stdout + result.stderr;
         expect(combined).toContain('Your card was declined.');
+      });
+
+      it('requires a spend request ID and business', async () => {
+        const result = await runProdCli(
+          'ucp',
+          'checkout',
+          'complete',
+          'dcs_1',
+          '--json',
+        );
+
+        expect(result.exitCode).toBe(1);
+        expect(requests).toHaveLength(0);
+      });
+
+      it('rejects the removed shared payment token option', async () => {
+        const result = await runProdCli(
+          'ucp',
+          'checkout',
+          'complete',
+          'dcs_1',
+          '--shared-payment-token',
+          'spt_1',
+          '--business',
+          'np_1',
+          '--json',
+        );
+
+        expect(result.exitCode).toBe(1);
+        expect(requests).toHaveLength(0);
       });
     });
   });

@@ -214,6 +214,8 @@ describe('ucp checkout create component', () => {
       expect(frame).toContain('--credential-type shared_payment_token');
       expect(frame).toContain('--network-id np_1');
       expect(frame).toContain('ucp checkout complete dcs_1');
+      expect(frame).toContain('--spend-request-id <SPEND_REQUEST_ID>');
+      expect(frame).toContain('--business np_1');
     });
   });
 });
@@ -233,7 +235,7 @@ describe('ucp checkout complete component', () => {
       <CheckoutComplete
         repository={repo}
         id="dcs_1"
-        params={{ shared_payment_token: 'spt_1' }}
+        params={{ spend_request_id: 'lsrq_1', profile_id: 'np_1' }}
         onComplete={() => {}}
       />,
     );
