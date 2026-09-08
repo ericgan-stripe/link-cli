@@ -213,6 +213,8 @@ describe('ucp checkout create component', () => {
       expect(frame).toContain('spend-request create');
       expect(frame).toContain('--credential-type shared_payment_token');
       expect(frame).toContain('--network-id np_1');
+      expect(frame).toContain('both --spend-request-id and');
+      expect(frame).toContain('--business are required');
       expect(frame).toContain('ucp checkout complete dcs_1');
       expect(frame).toContain('--spend-request-id <SPEND_REQUEST_ID>');
       expect(frame).toContain('--business np_1');

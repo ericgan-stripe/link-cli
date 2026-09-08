@@ -2853,6 +2853,9 @@ describe('production mode', () => {
         const output = parseJson(result.stdout) as Record<string, unknown>;
         expect(output.id).toBe('dcs_1');
         expect(output.instruction).toContain('--network-id np_1');
+        expect(output.instruction).toContain(
+          'Both `--spend-request-id` and `--business` are required',
+        );
         // Agent mode includes a _next hint to complete the checkout.
         expect((output._next as Record<string, unknown>).command).toBe(
           'ucp checkout complete dcs_1 --spend-request-id <spend_request_id> --business np_1',
@@ -2967,12 +2970,29 @@ describe('production mode', () => {
         expect(combined).toContain('Your card was declined.');
       });
 
-      it('requires a spend request ID and business', async () => {
+      it('requires a spend request ID', async () => {
         const result = await runProdCli(
           'ucp',
           'checkout',
           'complete',
           'dcs_1',
+          '--business',
+          'np_1',
+          '--json',
+        );
+
+        expect(result.exitCode).toBe(1);
+        expect(requests).toHaveLength(0);
+      });
+
+      it('requires a business', async () => {
+        const result = await runProdCli(
+          'ucp',
+          'checkout',
+          'complete',
+          'dcs_1',
+          '--spend-request-id',
+          'lsrq_1',
           '--json',
         );
 

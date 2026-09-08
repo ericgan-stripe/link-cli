@@ -113,13 +113,15 @@ export const checkoutCreateOptions = z.object({
 export const checkoutCompleteOptions = z.object({
   spendRequestId: z
     .string()
+    .nonempty()
     .describe(
-      'Approved spend request ID that authorizes the payment. Create one with `spend-request create --credential-type shared_payment_token --network-id <business>`, using the same business value passed to UCP',
+      'Approved spend request ID that authorizes the payment (required). Create one with `spend-request create --credential-type shared_payment_token --network-id <business>`, using the same business value passed to UCP',
     ),
   business: z
     .string()
+    .nonempty()
     .describe(
-      'Business target used to verify the spend request belongs to the same seller profile',
+      'Business target used to verify the spend request belongs to the same seller profile (required)',
     ),
   test: z
     .boolean()
