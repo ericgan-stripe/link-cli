@@ -60,8 +60,17 @@ export const CheckoutCreate: React.FC<CheckoutCreateProps> = ({
       {data && <CheckoutSummary checkout={data} />}
       <Box marginTop={1}>
         <Text dimColor>
-          Mint and approve a Shared Payment Token, then complete:{' '}
-          <Text color="cyan">ucp checkout complete {data?.id}</Text>
+          Create and approve a spend request using this business as the network
+          ID:{' '}
+          <Text color="cyan">
+            spend-request create --credential-type shared_payment_token
+            --network-id {params.profile_id}
+          </Text>
+          . Then complete (both --spend-request-id and --business are required):{' '}
+          <Text color="cyan">
+            ucp checkout complete {data?.id} --spend-request-id
+            &lt;SPEND_REQUEST_ID&gt; --business {params.profile_id}
+          </Text>
         </Text>
       </Box>
     </Box>

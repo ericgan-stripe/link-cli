@@ -246,7 +246,8 @@ export interface CreateUcpCheckoutParams {
 }
 
 export interface CompleteUcpCheckoutParams {
-  shared_payment_token: string;
+  spend_request_id: string;
+  profile_id: string;
   test?: boolean;
 }
 
