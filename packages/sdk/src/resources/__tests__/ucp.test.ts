@@ -141,7 +141,7 @@ describe('UcpResource', () => {
   });
 
   describe('completeCheckout', () => {
-    it('POSTs the shared payment token to the confirm path', async () => {
+    it('POSTs the spend request and profile IDs to the confirm path', async () => {
       mockFetchResponse(200, {
         id: 'dcs_1',
         status: 'completed',
@@ -149,13 +149,19 @@ describe('UcpResource', () => {
       });
 
       const result = await repo.completeCheckout('dcs_1', {
-        shared_payment_token: 'spt_1',
+        spend_request_id: 'lsrq_1',
+        profile_id: 'np_1',
+        test: true,
       });
 
       const [url, opts] = mockFetch.mock.calls[0];
       expect(url).toBe('https://api.link.com/ucp/checkout/dcs_1/complete');
       expect(opts.method).toBe('POST');
-      expect(JSON.parse(opts.body)).toEqual({ shared_payment_token: 'spt_1' });
+      expect(JSON.parse(opts.body)).toEqual({
+        spend_request_id: 'lsrq_1',
+        profile_id: 'np_1',
+        test: true,
+      });
 
       expect(result.status).toBe('completed');
     });
@@ -164,7 +170,8 @@ describe('UcpResource', () => {
       mockFetchResponse(200, { id: 'dcs/weird' });
 
       await repo.completeCheckout('dcs/weird', {
-        shared_payment_token: 'spt_1',
+        spend_request_id: 'lsrq_1',
+        profile_id: 'np_1',
       });
 
       expect(mockFetch.mock.calls[0][0]).toBe(
@@ -178,7 +185,10 @@ describe('UcpResource', () => {
       });
 
       await expect(
-        repo.completeCheckout('dcs_1', { shared_payment_token: 'spt_1' }),
+        repo.completeCheckout('dcs_1', {
+          spend_request_id: 'lsrq_1',
+          profile_id: 'np_1',
+        }),
       ).rejects.toThrow(
         'Failed to complete UCP checkout (402): Your card was declined.',
       );
